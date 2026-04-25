@@ -32,9 +32,10 @@ export function BoardGrid({
 }) {
   return (
     <div
-      className="grid max-h-full w-full max-w-full gap-1.5 sm:gap-2"
+      className="grid aspect-square w-full max-w-full grid-rows-4 gap-1.5 sm:gap-2"
       style={{
         gridTemplateColumns: `repeat(${board.cols}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${board.rows}, minmax(0, 1fr))`,
       }}
     >
       {board.cells.map((cell) => {
@@ -71,21 +72,23 @@ export function BoardGrid({
               isHighlighted && !displayedLandmark ? "border-emerald-600" : "",
             ].join(" ")}
           >
-            <div className="flex h-full w-full flex-col">
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-white/70">
+            <div className="relative h-full w-full overflow-hidden">
+              <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-white/70">
                 {cell.route ? (
                   <CardImage
                     src={ROUTE_CARD_IMAGES[cell.route.routeType]}
                     alt={`路线牌 ${cell.route.routeType}`}
                     rotation={cell.route.rotation}
-                    className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] text-slate-600"
+                    className="flex h-full w-full items-center justify-center text-center text-[10px] text-slate-600"
+                    imageClassName="object-cover"
                     fallback={`路线:${cell.route.routeType} r${cell.route.rotation}`}
                   />
                 ) : cell.kind === "finish" ? (
                   <CardImage
                     src={FINISH_IMAGE}
                     alt="Finish"
-                    className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] font-medium text-emerald-700"
+                    className="flex h-full w-full items-center justify-center text-center text-[10px] font-medium text-emerald-700"
+                    imageClassName="object-cover"
                     fallback="FIN"
                   />
                 ) : displayedLandmark ? (

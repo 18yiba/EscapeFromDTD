@@ -82,7 +82,7 @@ export function InGameView() {
   const ruleFeedbackText = `反馈：${feedbackPlayerName} · 连通 ${feedbackConnected}/${feedbackThreshold} · 有效 ${feedbackFormed}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden">
       <div className="shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -103,7 +103,7 @@ export function InGameView() {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-2 sm:p-3">
+      <div className="flex w-full shrink-0 items-center justify-center overflow-visible rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:p-3">
         <BoardGrid
           board={game.board}
           selectedCellId={ui.selectedCellId}
@@ -120,8 +120,8 @@ export function InGameView() {
         />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-3 overflow-visible sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1 space-y-2">
+      <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
           <div className="text-xs font-medium text-slate-700">手牌（{current.handCards.length}）</div>
           <HandPanel
             cards={current.handCards}
@@ -133,7 +133,7 @@ export function InGameView() {
           <div className="text-[11px] leading-4 text-slate-500">{ruleFeedbackText}</div>
         </div>
 
-        <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2.5 overflow-visible sm:w-72">
+        <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="text-xs font-medium text-slate-700">行动</div>
             {isInWinClaimMode && (

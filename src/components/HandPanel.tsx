@@ -20,7 +20,7 @@ export function HandPanel({
   onSelect: (cardId: string) => void;
 }) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="grid grid-cols-3 gap-1.5 pb-1 sm:flex sm:gap-2 sm:overflow-x-auto">
       {cards.map((card) => {
         const selected = selectedCardId === card.id;
         return (
@@ -29,18 +29,18 @@ export function HandPanel({
             type="button"
             disabled={disabled}
             className={[
-              "min-w-28 rounded-lg border px-2 py-2 text-left text-xs",
+              "min-w-0 rounded-md border px-1.5 py-1 text-left text-[10px] sm:min-w-28 sm:rounded-lg sm:px-2 sm:py-2 sm:text-xs",
               selected ? "border-slate-900 bg-white" : "border-slate-200 bg-slate-50 hover:bg-slate-100",
               disabled ? "cursor-not-allowed opacity-50 hover:bg-slate-50" : "",
             ].join(" ")}
             onClick={() => onSelect(card.id)}
           >
-            <div className="mb-1 text-[10px] uppercase text-slate-500">路线</div>
+            <div className="mb-0.5 text-[9px] uppercase text-slate-500 sm:mb-1 sm:text-[10px]">路线</div>
             <CardImage
               src={ROUTE_CARD_IMAGES[card.routeType]}
               alt={`路线牌 ${card.routeType}`}
               rotation={selected ? selectedRotation : 0}
-              className="flex aspect-[3/4] w-24 items-center justify-center overflow-hidden rounded-md bg-white p-1 text-center text-xs text-slate-700"
+              className="mx-auto flex aspect-[3/4] h-16 items-center justify-center overflow-hidden rounded bg-white p-0.5 text-center text-[10px] text-slate-700 sm:h-auto sm:w-24 sm:rounded-md sm:p-1 sm:text-xs"
               fallback={
                 <div>
                   <div className="text-[10px] uppercase text-slate-500">路线</div>

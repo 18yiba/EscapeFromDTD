@@ -27,6 +27,8 @@ export function CardImage({
     setHasError(false);
   }, [src]);
 
+  const objectFitClass = imageClassName.includes("object-") ? "" : "object-contain";
+
   if (!src || hasError) {
     return <div className={className}>{fallback}</div>;
   }
@@ -36,7 +38,7 @@ export function CardImage({
       <img
         src={src}
         alt={alt}
-        className={["h-full w-full object-contain transition-transform duration-150", imageClassName].join(" ")}
+        className={["h-full w-full transition-transform duration-150", objectFitClass, imageClassName].join(" ")}
         style={{ transform: `rotate(${rotation * 90}deg)` }}
         draggable={false}
         onError={() => setHasError(true)}
