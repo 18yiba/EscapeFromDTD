@@ -134,14 +134,11 @@ export function InGameView() {
         </div>
 
         <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="text-xs font-medium text-slate-700">行动</div>
-            {isInWinClaimMode && (
-              <div className="text-[11px] text-slate-500">
-                已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
-              </div>
-            )}
-          </div>
+          {isInWinClaimMode && (
+            <div className="mb-1.5 text-right text-[11px] text-slate-500">
+              已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
+            </div>
+          )}
           <div className="flex flex-col gap-2 overflow-visible">
             {!isInWinClaimMode && ui.selectedCardId && (
               <div className="grid grid-cols-2 gap-2">
