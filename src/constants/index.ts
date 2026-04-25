@@ -4,6 +4,6 @@
  */
 
 export const APP_TITLE = "逃出地图岛";
+export * from "./assets";
 export * from "./game";
 export * from "./routes";
-

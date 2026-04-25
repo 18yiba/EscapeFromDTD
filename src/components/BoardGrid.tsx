@@ -2,7 +2,9 @@
  * Board 渲染组件（只展示，不做规则判定）。
  */
 
+import { CARD_BACK_IMAGE, FINISH_IMAGE, LANDMARK_IMAGES, ROUTE_CARD_IMAGES } from "../constants";
 import type { BoardState } from "../types";
+import { CardImage } from "./CardImage";
 
 type TemporaryInspectedLandmark = {
   owner: "red" | "blue";
@@ -47,42 +49,75 @@ export function BoardGrid({
             : cell.revealed.kind === "landmark"
             ? { owner: cell.revealed.owner, label: cell.revealed.label }
             : null;
+        const displayedLandmark = temporaryInspectedLandmark ?? visibleLandmark;
+        const landmarkBorderClass =
+          displayedLandmark?.owner === "red"
+            ? "border-red-500"
+            : displayedLandmark?.owner === "blue"
+            ? "border-blue-500"
+            : "border-slate-200";
         return (
           <button
             key={cell.id}
             type="button"
             onClick={() => onSelectCell(cell.id)}
             className={[
-              "aspect-square rounded-lg border text-left text-xs transition",
+              "relative aspect-square overflow-hidden rounded-lg border-2 text-left text-xs transition",
               "bg-slate-50 hover:bg-slate-100",
-              isSelected ? "border-slate-900" : "border-slate-200",
+              landmarkBorderClass,
+              isSelected ? "ring-2 ring-slate-900 ring-offset-2" : "",
               isConnected ? "bg-emerald-50" : "",
-              isClaimSelected ? "ring-2 ring-amber-500" : "",
-              isHighlighted ? "border-emerald-600" : "",
+              isClaimSelected ? "ring-2 ring-amber-500 ring-offset-2" : "",
+              isHighlighted && !displayedLandmark ? "border-emerald-600" : "",
             ].join(" ")}
           >
-            <div className="flex h-full flex-col justify-between p-2">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">
-                  {String.fromCharCode(65 + cell.row)}
-                  {cell.col + 1}
-                </div>
-                {cell.kind === "finish" && <div className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] text-white">FIN</div>}
+            <div className="flex h-full w-full flex-col">
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-white/70">
+                {cell.route ? (
+                  <CardImage
+                    src={ROUTE_CARD_IMAGES[cell.route.routeType]}
+                    alt={`路线牌 ${cell.route.routeType}`}
+                    rotation={cell.route.rotation}
+                    className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] text-slate-600"
+                    fallback={`路线:${cell.route.routeType} r${cell.route.rotation}`}
+                  />
+                ) : cell.kind === "finish" ? (
+                  <CardImage
+                    src={FINISH_IMAGE}
+                    alt="Finish"
+                    className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] font-medium text-emerald-700"
+                    fallback="FIN"
+                  />
+                ) : displayedLandmark ? (
+                  <CardImage
+                    src={LANDMARK_IMAGES[displayedLandmark.label]}
+                    alt={`地标 ${displayedLandmark.label}`}
+                    className="flex h-full w-full items-center justify-center text-center text-[10px] text-slate-600"
+                    imageClassName="object-cover"
+                    fallback={`地标:${displayedLandmark.owner === "red" ? "红" : "蓝"}-${displayedLandmark.label}`}
+                  />
+                ) : cell.hidden ? (
+                  <CardImage
+                    src={CARD_BACK_IMAGE}
+                    alt="隐藏格"
+                    className="flex h-full w-full items-center justify-center text-center text-[10px] text-slate-500"
+                    imageClassName="object-cover"
+                    fallback="—"
+                  />
+                ) : (
+                  <div className="text-[10px] text-slate-500">—</div>
+                )}
               </div>
-              <div className="space-y-1 text-[10px] text-slate-600">
-                {cell.route
-                  ? `路线:${cell.route.routeType} r${cell.route.rotation}`
-                  : visibleLandmark
-                  ? `地标:${visibleLandmark.owner === "red" ? "红" : "蓝"}-${visibleLandmark.label}`
-                  : "—"}
-                {temporaryInspectedLandmark && (
-                  <div className="rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-900">
-                    地标:{temporaryInspectedLandmark.owner === "red" ? "红" : "蓝"}-{temporaryInspectedLandmark.label}
+
+              <div className="pointer-events-none absolute inset-x-1 bottom-1 space-y-1 text-[10px] text-slate-600">
+                {displayedLandmark && (
+                  <div className="truncate rounded bg-white/85 px-1 py-0.5 shadow-sm">
+                    {displayedLandmark.owner === "red" ? "红" : "蓝"}-{displayedLandmark.label}
                   </div>
                 )}
-                {isHighlighted && <div className="text-[10px] text-sky-700">可验证</div>}
-                {isConnected && <div className="text-[10px] text-emerald-700">已连通</div>}
-                {isClaimSelected && <div className="text-[10px] text-amber-700">验证选择</div>}
+                {isHighlighted && <div className="rounded bg-white/85 px-1 py-0.5 text-sky-700 shadow-sm">可验证</div>}
+                {isConnected && <div className="rounded bg-white/85 px-1 py-0.5 text-emerald-700 shadow-sm">已连通</div>}
+                {isClaimSelected && <div className="rounded bg-white/85 px-1 py-0.5 text-amber-700 shadow-sm">验证选择</div>}
               </div>
             </div>
           </button>

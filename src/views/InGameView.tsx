@@ -126,6 +126,7 @@ export function InGameView() {
           <HandPanel
             cards={current.handCards}
             selectedCardId={ui.selectedCardId}
+            selectedRotation={ui.selectedRotation}
             disabled={!canSelectHandCard}
             onSelect={(id) => selectCard(id)}
           />
