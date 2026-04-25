@@ -1,0 +1,16 @@
+/**
+ * 全局样式入口。
+ * 当前阶段先保持简洁：避免到处写硬编码样式，后续会迁移到 Tailwind token 与主题变量。
+ */
+
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+}
