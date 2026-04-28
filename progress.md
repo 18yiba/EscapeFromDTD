@@ -8,6 +8,8 @@ Progress:
 - Verified npm run build passes.
 - Added return-to-mode-select action and in-game symbol back button.
 - Verified npm run build passes after return button change.
+- Upgraded AI v1 with limited-memory decision rules, DTD constraints, memory decay, and 3s thinking delay.
+- Verified npm run build passes after limited-memory AI upgrade.
 
 TODO:
 - Optional future work: add a small deterministic test seam for AI decisions if route placement rules become stricter.

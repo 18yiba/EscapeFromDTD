@@ -10,7 +10,7 @@
 import { create } from "zustand";
 import type { DtdCardType, EngineAction, GameMode, GameState, PlayerId, Rotation } from "../types";
 import type { RuleFeedback, Scene, ToastState } from "../types/ui";
-import { applyAction, decideAiAction, initializeGame, rememberAiObservation } from "../engine";
+import { applyAction, decayAiMemoryForTurn, decideAiAction, initializeGame, rememberAiAction, rememberAiObservation } from "../engine";
 import { WIN_CONNECTED_LANDMARKS } from "../constants";
 
 type TemporaryInspectedLandmark = {
@@ -27,6 +27,8 @@ type GameUIState = {
   toast: ToastState;
   ruleFeedback: RuleFeedback | null;
   temporaryInspectedLandmarks: Record<number, TemporaryInspectedLandmark>;
+  temporaryInspectedBlankCellIds: number[];
+  isAiThinking: boolean;
 };
 
 type GameActions = {
@@ -53,6 +55,7 @@ type GameActions = {
   toggleWinClaimLandmark: (cellId: number) => void;
   submitWinClaim: () => void;
   endTurn: () => void;
+  scheduleAiTurnIfNeeded: () => void;
   runAiTurnIfNeeded: () => void;
 
   closeToast: () => void;
@@ -70,6 +73,7 @@ export function selectCanInspectSelectedCell(state: GameStoreState): boolean {
   if (
     !game ||
     isAiControlledTurn(game) ||
+    state.ui.isAiThinking ||
     selectedCellId == null ||
     state.ui.selectedCardId !== null ||
     game.turnActionUsed !== null ||
@@ -85,6 +89,7 @@ export function selectCanSelectHandCard(state: GameStoreState): boolean {
   return Boolean(
     state.game &&
       !isAiControlledTurn(state.game) &&
+      !state.ui.isAiThinking &&
       state.game.turnActionUsed === null &&
       !state.game.playerEffects[state.game.currentTurn].skipNextTurn
   );
@@ -95,6 +100,7 @@ export function selectCanConfirmPlaceRoute(state: GameStoreState): boolean {
   return Boolean(
     state.game &&
       !isAiControlledTurn(state.game) &&
+      !state.ui.isAiThinking &&
       state.game.turnActionUsed === null &&
       selectedCard?.kind === "route" &&
       typeof state.ui.selectedCellId === "number" &&
@@ -106,6 +112,7 @@ export function selectCanEndTurn(state: GameStoreState): boolean {
   return Boolean(
     state.game &&
       !isAiControlledTurn(state.game) &&
+      !state.ui.isAiThinking &&
       state.game.status === "playing" &&
       (state.game.turnActionUsed !== null || state.game.playerEffects[state.game.currentTurn].skipNextTurn) &&
       state.game.winClaim === null
@@ -116,6 +123,7 @@ export function selectCanStartWinClaim(state: GameStoreState): boolean {
   return Boolean(
     state.game &&
       !isAiControlledTurn(state.game) &&
+      !state.ui.isAiThinking &&
       state.game.status === "playing" &&
       state.game.winClaim === null &&
       !state.game.playerEffects[state.game.currentTurn].skipNextTurn &&
@@ -130,7 +138,9 @@ export function selectIsInWinClaimMode(state: GameStoreState): boolean {
 const initialToast: ToastState = { open: false, level: "info", message: "" };
 const ROTATION_COUNT = 4;
 const INSPECT_REVEAL_DURATION_MS = 3000;
+const AI_THINKING_DELAY_MS = 3000;
 const inspectHideTimers = new Map<number, ReturnType<typeof setTimeout>>();
+let aiThinkingTimer: ReturnType<typeof setTimeout> | null = null;
 
 function isAiControlledTurn(game: GameState | null): boolean {
   return Boolean(game && game.gameMode === "ai" && game.currentTurn === "blue" && game.status === "playing");
@@ -147,6 +157,13 @@ function clearInspectHideTimer(cellId: number) {
 function clearAllInspectHideTimers() {
   inspectHideTimers.forEach((timerId) => clearTimeout(timerId));
   inspectHideTimers.clear();
+}
+
+function clearAiThinkingTimer() {
+  if (aiThinkingTimer) {
+    clearTimeout(aiThinkingTimer);
+    aiThinkingTimer = null;
+  }
 }
 
 function rotateClockwise(rotation: Rotation): Rotation {
@@ -180,13 +197,21 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     toast: initialToast,
     ruleFeedback: null,
     temporaryInspectedLandmarks: {},
+    temporaryInspectedBlankCellIds: [],
+    isAiThinking: false,
   },
 
-  setScene: (scene) => set({ scene }),
+  setScene: (scene) => {
+    if (scene !== "inGame") {
+      clearAiThinkingTimer();
+    }
+    set((s) => ({ scene, ui: { ...s.ui, isAiThinking: scene === "inGame" ? s.ui.isAiThinking : false } }));
+  },
 
   startNewGame: (mode = "hotseat") => {
     const game = initializeGame(mode);
     clearAllInspectHideTimers();
+    clearAiThinkingTimer();
     set({
       scene: "inGame",
       game,
@@ -199,12 +224,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         landmarkChaosCellIds: [],
         ruleFeedback: null,
         temporaryInspectedLandmarks: {},
+        temporaryInspectedBlankCellIds: [],
+        isAiThinking: false,
       },
     });
   },
 
   restart: () => {
     clearAllInspectHideTimers();
+    clearAiThinkingTimer();
     set({
       scene: "landing",
       game: null,
@@ -218,12 +246,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         toast: initialToast,
         ruleFeedback: null,
         temporaryInspectedLandmarks: {},
+        temporaryInspectedBlankCellIds: [],
+        isAiThinking: false,
       },
     });
   },
 
   returnToLanding: () => {
     clearAllInspectHideTimers();
+    clearAiThinkingTimer();
     set({
       scene: "landing",
       game: null,
@@ -237,13 +268,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         toast: initialToast,
         ruleFeedback: null,
         temporaryInspectedLandmarks: {},
+        temporaryInspectedBlankCellIds: [],
+        isAiThinking: false,
       },
     });
   },
 
   selectCard: (cardId) =>
     set((s) => {
-      if (isAiControlledTurn(s.game)) return s;
+      if (isAiControlledTurn(s.game) || s.ui.isAiThinking) return s;
       const nextCardId = s.ui.selectedCardId === cardId ? null : cardId;
       return {
         ui: {
@@ -255,12 +288,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         },
       };
     }),
-  selectCell: (cellId) => set((s) => (isAiControlledTurn(s.game) ? s : { ui: { ...s.ui, selectedCellId: cellId } })),
+  selectCell: (cellId) =>
+    set((s) => (isAiControlledTurn(s.game) || s.ui.isAiThinking ? s : { ui: { ...s.ui, selectedCellId: cellId } })),
   selectRouteChaosTarget: (target) =>
-    set((s) => (isAiControlledTurn(s.game) ? s : { ui: { ...s.ui, routeChaosTarget: target } })),
+    set((s) => (isAiControlledTurn(s.game) || s.ui.isAiThinking ? s : { ui: { ...s.ui, routeChaosTarget: target } })),
   toggleLandmarkChaosCell: (cellId) =>
     set((s) => {
-      if (isAiControlledTurn(s.game)) return s;
+      if (isAiControlledTurn(s.game) || s.ui.isAiThinking) return s;
       const exists = s.ui.landmarkChaosCellIds.includes(cellId);
       return {
         ui: {
@@ -273,7 +307,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }),
   rotateSelectedCardLeft: () =>
     set((s) =>
-      isAiControlledTurn(s.game)
+      isAiControlledTurn(s.game) || s.ui.isAiThinking
         ? s
         : {
             ui: {
@@ -284,7 +318,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     ),
   rotateSelectedCardRight: () =>
     set((s) =>
-      isAiControlledTurn(s.game)
+      isAiControlledTurn(s.game) || s.ui.isAiThinking
         ? s
         : {
             ui: {
@@ -300,7 +334,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: "对局未开始。" } } }));
       return;
     }
-    if (isAiControlledTurn(current)) return;
+    if (isAiControlledTurn(current) || get().ui.isAiThinking) return;
 
     const result = applyAction(current, { type: "placeRoute", ...args });
     if (!result.ok) {
@@ -338,7 +372,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   confirmUseDtd: () => {
     const state = get();
     const current = state.game;
-    if (isAiControlledTurn(current)) return;
+    if (isAiControlledTurn(current) || state.ui.isAiThinking) return;
     const selectedCard = getSelectedCard(state);
     if (!current || !selectedCard || selectedCard.kind !== "dtd") {
       set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: "请先选择 DTD 卡。" } } }));
@@ -393,7 +427,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   inspectSelectedCell: () => {
     const state = get();
-    if (isAiControlledTurn(state.game)) return;
+    if (isAiControlledTurn(state.game) || state.ui.isAiThinking) return;
     if (!selectCanInspectSelectedCell(state) || !state.game || state.ui.selectedCellId == null) {
       return;
     }
@@ -419,16 +453,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             label: inspectedBeforeAction.hidden.label,
           }
         : null;
+    const inspectedBlank = inspectedBeforeAction?.hidden?.kind === "blank";
     const message =
       inspectedLandmark
         ? `查看结果：${inspectedLandmark.owner === "red" ? "红方" : "蓝方"}-${inspectedLandmark.label}`
         : "查看结果：空白。";
 
-    if (inspectedLandmark) {
+    if (inspectedLandmark || inspectedBlank) {
       clearInspectHideTimer(cellId);
       const timerId = setTimeout(() => {
         set((s) => {
-          if (!s.ui.temporaryInspectedLandmarks[cellId]) {
+          if (!s.ui.temporaryInspectedLandmarks[cellId] && !s.ui.temporaryInspectedBlankCellIds.includes(cellId)) {
             return s;
           }
           const nextTemporaryInspectedLandmarks = { ...s.ui.temporaryInspectedLandmarks };
@@ -437,6 +472,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             ui: {
               ...s.ui,
               temporaryInspectedLandmarks: nextTemporaryInspectedLandmarks,
+              temporaryInspectedBlankCellIds: s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== cellId),
             },
           };
         });
@@ -455,6 +491,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
               [cellId]: inspectedLandmark,
             }
           : s.ui.temporaryInspectedLandmarks,
+        temporaryInspectedBlankCellIds: inspectedBlank
+          ? [...s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== cellId), cellId]
+          : s.ui.temporaryInspectedBlankCellIds,
         toast: { open: true, level: "info", message },
       },
     }));
@@ -463,7 +502,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   startWinClaim: () => {
     const state = get();
     if (!state.game) return;
-    if (isAiControlledTurn(state.game)) return;
+    if (isAiControlledTurn(state.game) || state.ui.isAiThinking) return;
     const result = applyAction(state.game, { type: "startWinClaim", playerId: state.game.currentTurn });
     if (!result.ok) {
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
@@ -485,7 +524,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   cancelWinClaim: () => {
     const state = get();
     if (!state.game) return;
-    if (isAiControlledTurn(state.game)) return;
+    if (isAiControlledTurn(state.game) || state.ui.isAiThinking) return;
     const result = applyAction(state.game, { type: "cancelWinClaim", playerId: state.game.currentTurn });
     if (!result.ok) {
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
@@ -507,7 +546,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   toggleWinClaimLandmark: (cellId) => {
     const state = get();
     if (!state.game) return;
-    if (isAiControlledTurn(state.game)) return;
+    if (isAiControlledTurn(state.game) || state.ui.isAiThinking) return;
     const result = applyAction(state.game, {
       type: "toggleWinClaimLandmark",
       playerId: state.game.currentTurn,
@@ -533,17 +572,19 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   submitWinClaim: () => {
     const state = get();
     if (!state.game) return;
-    if (isAiControlledTurn(state.game)) return;
+    if (isAiControlledTurn(state.game) || state.ui.isAiThinking) return;
     const result = applyAction(state.game, { type: "submitWinClaim", playerId: state.game.currentTurn });
     if (!result.ok) {
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
       return;
     }
+    clearAiThinkingTimer();
     set((s) => ({
       scene: "result",
       game: result.state,
       ui: {
         ...s.ui,
+        isAiThinking: false,
         toast: {
           open: true,
           level: "info",
@@ -552,14 +593,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       },
     }));
     if (result.state.status === "finished") {
-      set({ scene: "result" });
+      set((s) => ({ scene: "result", ui: { ...s.ui, isAiThinking: false } }));
     }
   },
 
   endTurn: () => {
     const current = get().game;
     if (!current) return;
-    if (isAiControlledTurn(current)) return;
+    if (isAiControlledTurn(current) || get().ui.isAiThinking) return;
     const result = applyAction(current, { type: "endTurn" });
     if (!result.ok) {
       set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
@@ -576,15 +617,44 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         landmarkChaosCellIds: [],
       },
     }));
-    get().runAiTurnIfNeeded();
+    get().scheduleAiTurnIfNeeded();
+  },
+
+  scheduleAiTurnIfNeeded: () => {
+    const current = get().game;
+    const ui = get().ui;
+    if (!current || !isAiControlledTurn(current) || ui.isAiThinking || aiThinkingTimer) {
+      return;
+    }
+
+    set((s) => ({
+      ui: {
+        ...s.ui,
+        isAiThinking: true,
+      },
+    }));
+
+    aiThinkingTimer = setTimeout(() => {
+      aiThinkingTimer = null;
+      const latest = get().game;
+      if (!latest || !isAiControlledTurn(latest)) {
+        set((s) => ({ ui: { ...s.ui, isAiThinking: false } }));
+        return;
+      }
+
+      get().runAiTurnIfNeeded();
+      set((s) => ({ ui: { ...s.ui, isAiThinking: false } }));
+    }, AI_THINKING_DELAY_MS);
   },
 
   runAiTurnIfNeeded: () => {
     const current = get().game;
     if (!current || !isAiControlledTurn(current)) return;
 
-    if (current.playerEffects.blue.skipNextTurn) {
-      const skipResult = applyAction(current, { type: "endTurn" });
+    const decayed = decayAiMemoryForTurn(current);
+
+    if (decayed.playerEffects.blue.skipNextTurn) {
+      const skipResult = applyAction(rememberAiAction(decayed, "endTurn"), { type: "endTurn" });
       if (skipResult.ok) {
         set((s) => ({
           game: skipResult.state,
@@ -601,9 +671,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    const action = decideAiAction(current);
+    const action = decideAiAction(decayed);
     if (!action) {
-      const endResult = applyAction(current, { type: "endTurn" });
+      const endResult = applyAction(rememberAiAction(decayed, "endTurn"), { type: "endTurn" });
       if (endResult.ok) {
         set((s) => ({
           game: endResult.state,
@@ -620,8 +690,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    const inspectedCell = action.type === "inspectCell" ? current.board.cells.find((cell) => cell.id === action.cellId) : null;
-    const actionResult = applyAction(current, action);
+    const inspectedCell = action.type === "inspectCell" ? decayed.board.cells.find((cell) => cell.id === action.cellId) : null;
+    const actionResult = applyAction(decayed, action);
     if (!actionResult.ok) {
       set((s) => ({ game: actionResult.state, ui: { ...s.ui, toast: { open: true, level: "error", message: actionResult.error } } }));
       return;
@@ -631,9 +701,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       action.type === "inspectCell" && inspectedCell?.hidden
         ? rememberAiObservation(actionResult.state, { cellId: action.cellId, content: inspectedCell.hidden })
         : actionResult.state;
-    const endResult = applyAction(nextState, { type: "endTurn" });
+    const aiActionType =
+      action.type === "inspectCell" || action.type === "placeRoute" || action.type === "useDtd" ? action.type : "endTurn";
+    const nextStateWithAction = rememberAiAction(nextState, aiActionType);
+    const endResult = applyAction(nextStateWithAction, { type: "endTurn" });
     if (!endResult.ok) {
-      set((s) => ({ game: nextState, ui: { ...s.ui, toast: { open: true, level: "error", message: endResult.error } } }));
+      set((s) => ({ game: nextStateWithAction, ui: { ...s.ui, toast: { open: true, level: "error", message: endResult.error } } }));
       return;
     }
 

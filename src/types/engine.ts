@@ -88,6 +88,8 @@ export interface AiMemoryEntry {
 export interface AiMemoryState {
   entries: AiMemoryEntry[];
   limit: number;
+  lastActionType?: "inspectCell" | "placeRoute" | "useDtd" | "endTurn";
+  lastDecayTurnNumber?: number;
 }
 
 export type WinClaimValidationMark = "correct" | "incorrect";

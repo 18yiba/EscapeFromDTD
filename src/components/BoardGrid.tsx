@@ -18,6 +18,7 @@ export function BoardGrid({
   board,
   selectedCellId,
   temporaryInspectedLandmarks,
+  temporaryInspectedBlankCellIds = [],
   displayMode = "inGame",
   highlightedCellIds = [],
   connectedCellIds = [],
@@ -34,6 +35,7 @@ export function BoardGrid({
   board: BoardState;
   selectedCellId: number | null;
   temporaryInspectedLandmarks: Record<number, TemporaryInspectedLandmark>;
+  temporaryInspectedBlankCellIds?: number[];
   displayMode?: "inGame" | "review";
   highlightedCellIds?: number[];
   connectedCellIds?: number[];
@@ -58,6 +60,7 @@ export function BoardGrid({
       {board.cells.map((cell) => {
         const isSelected = selectedCellId === cell.id;
         const temporaryInspectedLandmark = temporaryInspectedLandmarks[cell.id];
+        const isTemporaryInspectedBlank = temporaryInspectedBlankCellIds.includes(cell.id);
         const isHighlighted = highlightedCellIds.includes(cell.id);
         const isConnected = connectedCellIds.includes(cell.id);
         const isClaimSelected = claimSelectedCellIds.includes(cell.id);
@@ -71,7 +74,8 @@ export function BoardGrid({
             : cell.revealed.kind === "landmark"
             ? { owner: cell.revealed.owner, label: cell.revealed.label }
             : null;
-        const visibleBlank = (showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "blank";
+        const visibleBlank =
+          isTemporaryInspectedBlank || ((showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "blank");
         const displayedLandmark = temporaryInspectedLandmark ?? visibleLandmark;
         const landmarkBorderClass =
           displayedLandmark?.owner === "red"

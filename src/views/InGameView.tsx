@@ -79,6 +79,7 @@ export function InGameView() {
 
   const current = game.players[game.currentTurn];
   const isAiTurn = game.gameMode === "ai" && game.currentTurn === "blue";
+  const isAiThinking = ui.isAiThinking;
   const modeLabel = game.gameMode === "ai" ? "AI 对战" : "双人对战";
   const turnLabel = isAiTurn ? `${current.name} AI` : current.name;
   const selectedCard = ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
@@ -121,7 +122,11 @@ export function InGameView() {
               <div className="text-xs text-slate-500">模式：{modeLabel}</div>
               <div className="text-xs text-slate-500">当前回合</div>
               <div className="text-xl font-semibold text-slate-900">{turnLabel}</div>
-              {isAiTurn && <div className="text-xs font-medium text-sky-700">AI 正在行动</div>}
+              {isAiTurn && (
+                <div className="text-xs font-medium text-sky-700">
+                  {isAiThinking ? "AI 正在思考..." : "AI 正在行动"}
+                </div>
+              )}
               {isCurrentTurnSkipped && <div className="text-xs font-medium text-orange-700">受到空间焦虑影响，本回合跳过行动</div>}
             </div>
           </div>
@@ -144,6 +149,7 @@ export function InGameView() {
           board={game.board}
           selectedCellId={ui.selectedCellId}
           temporaryInspectedLandmarks={ui.temporaryInspectedLandmarks}
+          temporaryInspectedBlankCellIds={ui.temporaryInspectedBlankCellIds}
           highlightedCellIds={isInWinClaimMode ? winClaimCandidateCellIds : []}
           claimSelectedCellIds={selectedClaimLandmarkCellIds}
           claimValidationResult={isWinClaimReviewing ? game.winClaim?.validationResult : undefined}
@@ -181,6 +187,11 @@ export function InGameView() {
         </div>
 
         <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5">
+          {isAiThinking && (
+            <div className="mb-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800">
+              蓝方 AI 思考中
+            </div>
+          )}
           {isInWinClaimMode && (
             <div className="mb-1.5 text-right text-[11px] text-slate-500">
               已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
