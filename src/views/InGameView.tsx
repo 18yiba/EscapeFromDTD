@@ -82,7 +82,8 @@ export function InGameView() {
   const isAiThinking = ui.isAiThinking;
   const modeLabel = game.gameMode === "ai" ? "AI 对战" : "双人对战";
   const turnLabel = isAiTurn ? `${current.name} AI` : current.name;
-  const selectedCard = ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
+  const visibleHandPlayer = game.gameMode === "ai" ? game.players.red : current;
+  const selectedCard = !isAiTurn && ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
   const isRouteCardSelected = selectedCard?.kind === "route";
   const selectedDtdType = selectedCard?.kind === "dtd" ? selectedCard.type : null;
   const isCurrentTurnSkipped = game.playerEffects[game.currentTurn].skipNextTurn;
@@ -175,9 +176,11 @@ export function InGameView() {
 
       <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
-          <div className="text-xs font-medium text-slate-700">手牌（{current.handCards.length}）</div>
+          <div className="text-xs font-medium text-slate-700">
+            {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
+          </div>
           <HandPanel
-            cards={current.handCards}
+            cards={visibleHandPlayer.handCards}
             selectedCardId={ui.selectedCardId}
             selectedRotation={ui.selectedRotation}
             disabled={!canSelectHandCard}
@@ -187,11 +190,6 @@ export function InGameView() {
         </div>
 
         <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5">
-          {isAiThinking && (
-            <div className="mb-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800">
-              蓝方 AI 思考中
-            </div>
-          )}
           {isInWinClaimMode && (
             <div className="mb-1.5 text-right text-[11px] text-slate-500">
               已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}

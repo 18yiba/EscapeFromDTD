@@ -10,6 +10,8 @@ Progress:
 - Verified npm run build passes after return button change.
 - Upgraded AI v1 with limited-memory decision rules, DTD constraints, memory decay, and 3s thinking delay.
 - Verified npm run build passes after limited-memory AI upgrade.
+- Fixed AI mode visibility: hidden AI hand, single thinking prompt, public inspect reveal, and AI DTD toast feedback.
+- Adjusted inspect reveal to be temporary only for normal play; AI and human inspect now share the same 3s temporary board reveal.
 
 TODO:
 - Optional future work: add a small deterministic test seam for AI decisions if route placement rules become stricter.

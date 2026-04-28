@@ -71,11 +71,10 @@ export function BoardGrid({
         const visibleLandmark =
           (showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "landmark"
             ? { owner: cell.hidden.owner, label: cell.hidden.label }
-            : cell.revealed.kind === "landmark"
-            ? { owner: cell.revealed.owner, label: cell.revealed.label }
             : null;
         const visibleBlank =
-          isTemporaryInspectedBlank || ((showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "blank");
+          isTemporaryInspectedBlank ||
+          ((showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "blank");
         const displayedLandmark = temporaryInspectedLandmark ?? visibleLandmark;
         const landmarkBorderClass =
           displayedLandmark?.owner === "red"

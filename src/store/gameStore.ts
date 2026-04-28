@@ -185,6 +185,11 @@ function getDtdName(type: DtdCardType): string {
   return "地标混乱";
 }
 
+function getDtdNameByCardId(game: GameState, cardId: string): string {
+  const card = game.players.blue.handCards.find((candidate) => candidate.id === cardId);
+  return card?.kind === "dtd" ? getDtdName(card.type) : "DTD";
+}
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
   scene: "landing",
   game: null,
@@ -454,10 +459,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           }
         : null;
     const inspectedBlank = inspectedBeforeAction?.hidden?.kind === "blank";
-    const message =
-      inspectedLandmark
-        ? `查看结果：${inspectedLandmark.owner === "red" ? "红方" : "蓝方"}-${inspectedLandmark.label}`
-        : "查看结果：空白。";
+    const message = "已查看该格，结果会短暂显示在棋盘上。";
 
     if (inspectedLandmark || inspectedBlank) {
       clearInspectHideTimer(cellId);
@@ -709,6 +711,35 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ game: nextStateWithAction, ui: { ...s.ui, toast: { open: true, level: "error", message: endResult.error } } }));
       return;
     }
+    const aiDtdName = action.type === "useDtd" ? getDtdNameByCardId(decayed, action.cardId) : null;
+    const aiInspectedCellId = action.type === "inspectCell" ? action.cellId : null;
+    const aiInspectedLandmark =
+      action.type === "inspectCell" && inspectedCell?.hidden?.kind === "landmark"
+        ? { owner: inspectedCell.hidden.owner, label: inspectedCell.hidden.label }
+        : null;
+    const aiInspectedBlank = action.type === "inspectCell" && inspectedCell?.hidden?.kind === "blank";
+
+    if (action.type === "inspectCell" && inspectedCell?.hidden) {
+      clearInspectHideTimer(action.cellId);
+      const timerId = setTimeout(() => {
+        set((s) => {
+          if (!s.ui.temporaryInspectedLandmarks[action.cellId] && !s.ui.temporaryInspectedBlankCellIds.includes(action.cellId)) {
+            return s;
+          }
+          const nextTemporaryInspectedLandmarks = { ...s.ui.temporaryInspectedLandmarks };
+          delete nextTemporaryInspectedLandmarks[action.cellId];
+          return {
+            ui: {
+              ...s.ui,
+              temporaryInspectedLandmarks: nextTemporaryInspectedLandmarks,
+              temporaryInspectedBlankCellIds: s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== action.cellId),
+            },
+          };
+        });
+        inspectHideTimers.delete(action.cellId);
+      }, INSPECT_REVEAL_DURATION_MS);
+      inspectHideTimers.set(action.cellId, timerId);
+    }
 
     set((s) => ({
       game: endResult.state,
@@ -719,6 +750,30 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         selectedRotation: 0,
         routeChaosTarget: null,
         landmarkChaosCellIds: [],
+        temporaryInspectedLandmarks: aiInspectedLandmark
+          ? {
+              ...s.ui.temporaryInspectedLandmarks,
+              [aiInspectedCellId!]: aiInspectedLandmark,
+            }
+          : s.ui.temporaryInspectedLandmarks,
+        temporaryInspectedBlankCellIds:
+          aiInspectedCellId != null && aiInspectedBlank
+            ? [...s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== aiInspectedCellId), aiInspectedCellId]
+            : s.ui.temporaryInspectedBlankCellIds,
+        toast:
+          aiDtdName
+            ? {
+                open: true,
+                level: "info",
+                message: `AI 使用了 ${aiDtdName}。`,
+              }
+            : action.type === "inspectCell"
+            ? {
+                open: true,
+                level: "info",
+                message: "AI 查看了一个格子，结果会短暂显示在棋盘上。",
+              }
+            : s.ui.toast,
       },
     }));
   },

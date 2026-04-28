@@ -46,6 +46,7 @@ export interface CellState {
   kind: CellKind;
   hidden: HiddenContent | null;
   revealed: RevealedContent;
+  isRevealed: boolean;
   route: RoutePlacement | null;
 }
 

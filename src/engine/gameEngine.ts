@@ -367,10 +367,10 @@ function useLandmarkChaos(
     ...state.board,
     cells: state.board.cells.map((cell) => {
       if (cell.id === first.id) {
-        return { ...cell, hidden: second.hidden, revealed: second.revealed };
+        return { ...cell, hidden: second.hidden, revealed: second.revealed, isRevealed: second.isRevealed };
       }
       if (cell.id === second.id) {
-        return { ...cell, hidden: first.hidden, revealed: first.revealed };
+        return { ...cell, hidden: first.hidden, revealed: first.revealed, isRevealed: first.isRevealed };
       }
       return cell;
     }),
@@ -603,6 +603,7 @@ function createInitialBoard(): BoardState {
         kind: isFinish ? "finish" : "normal",
         hidden: hiddenContent,
         revealed: isFinish ? { kind: "finish" } : { kind: "blank" },
+        isRevealed: isFinish,
         route: null,
       });
     }
