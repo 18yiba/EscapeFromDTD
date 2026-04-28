@@ -3,4 +3,5 @@
  */
 
 export { applyAction, initializeGame } from "./gameEngine";
-
+export { decideAiAction } from "./ai";
+export { rememberAiObservation } from "./aiMemory";

@@ -17,6 +17,7 @@ import type {
   DtdCard,
   EngineAction,
   EngineResult,
+  GameMode,
   GameState,
   HiddenContent,
   PlayerId,
@@ -25,7 +26,7 @@ import type {
   WinClaimValidationMark,
 } from "../types";
 
-export function initializeGame(): GameState {
+export function initializeGame(gameMode: GameMode = "hotseat"): GameState {
   const board = createInitialBoard();
   const drawPile = shuffle(buildUnifiedDeck());
 
@@ -40,10 +41,12 @@ export function initializeGame(): GameState {
   return {
     status: "playing",
     winnerId: null,
+    gameMode,
     board,
     drawPile,
     discardPile: [],
     currentTurn: "red",
+    turnNumber: 1,
     turnActionUsed: null,
     winClaim: null,
     playerEffects: {
@@ -51,6 +54,10 @@ export function initializeGame(): GameState {
       blue: { skipNextTurn: false },
     },
     players,
+    aiMemory: {
+      entries: [],
+      limit: 5,
+    },
     progress: {
       red: countConnectedLandmarks(board, "red"),
       blue: countConnectedLandmarks(board, "blue"),
@@ -154,6 +161,7 @@ function endTurn(state: GameState): GameState {
     players: nextPlayers,
     playerEffects: nextPlayerEffects,
     currentTurn: next,
+    turnNumber: state.turnNumber + 1,
     turnActionUsed: null,
     winClaim: null,
   };

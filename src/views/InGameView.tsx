@@ -22,6 +22,7 @@ import {
 
 export function InGameHeaderActions() {
   const startNewGame = useGameStore((s) => s.startNewGame);
+  const gameMode = useGameStore((s) => s.game?.gameMode ?? "hotseat");
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false);
 
   return (
@@ -34,7 +35,7 @@ export function InGameHeaderActions() {
           onCancel={() => setIsRestartConfirmOpen(false)}
           onConfirm={() => {
             setIsRestartConfirmOpen(false);
-            startNewGame();
+            startNewGame(gameMode);
           }}
         />
       )}
@@ -59,6 +60,7 @@ export function InGameView() {
   const toggleWinClaimLandmark = useGameStore((s) => s.toggleWinClaimLandmark);
   const submitWinClaim = useGameStore((s) => s.submitWinClaim);
   const endTurn = useGameStore((s) => s.endTurn);
+  const returnToLanding = useGameStore((s) => s.returnToLanding);
   const canStartWinClaim = useGameStore(selectCanStartWinClaim);
   const canEndTurn = useGameStore(selectCanEndTurn);
   const canInspectSelectedCell = useGameStore(selectCanInspectSelectedCell);
@@ -76,6 +78,9 @@ export function InGameView() {
   }
 
   const current = game.players[game.currentTurn];
+  const isAiTurn = game.gameMode === "ai" && game.currentTurn === "blue";
+  const modeLabel = game.gameMode === "ai" ? "AI 对战" : "双人对战";
+  const turnLabel = isAiTurn ? `${current.name} AI` : current.name;
   const selectedCard = ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
   const isRouteCardSelected = selectedCard?.kind === "route";
   const selectedDtdType = selectedCard?.kind === "dtd" ? selectedCard.type : null;
@@ -103,10 +108,22 @@ export function InGameView() {
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden">
       <div className="shrink-0">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs text-slate-500">当前回合</div>
-            <div className="text-xl font-semibold text-slate-900">{current.name}</div>
-            {isCurrentTurnSkipped && <div className="text-xs font-medium text-orange-700">受到空间焦虑影响，本回合跳过行动</div>}
+          <div className="flex min-w-0 items-start gap-2">
+            <Button
+              variant="secondary"
+              className="h-8 w-8 shrink-0 px-0 py-0 text-base"
+              aria-label="返回模式选择"
+              onClick={returnToLanding}
+            >
+              ←
+            </Button>
+            <div className="min-w-0">
+              <div className="text-xs text-slate-500">模式：{modeLabel}</div>
+              <div className="text-xs text-slate-500">当前回合</div>
+              <div className="text-xl font-semibold text-slate-900">{turnLabel}</div>
+              {isAiTurn && <div className="text-xs font-medium text-sky-700">AI 正在行动</div>}
+              {isCurrentTurnSkipped && <div className="text-xs font-medium text-orange-700">受到空间焦虑影响，本回合跳过行动</div>}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-500">连通地标</div>

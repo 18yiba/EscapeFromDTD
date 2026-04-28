@@ -7,6 +7,8 @@ export type PlayerId = "red" | "blue";
 
 export type GameStatus = "playing" | "finished";
 
+export type GameMode = "hotseat" | "ai";
+
 export type RouteType = "straight" | "turn" | "tee" | "cross";
 
 export type DtdCardType = "space-anxiety" | "route-chaos" | "landmark-chaos";
@@ -77,6 +79,17 @@ export interface PlayerState {
   handCards: Card[];
 }
 
+export interface AiMemoryEntry {
+  cellId: number;
+  content: HiddenContent;
+  seenAtTurn: number;
+}
+
+export interface AiMemoryState {
+  entries: AiMemoryEntry[];
+  limit: number;
+}
+
 export type WinClaimValidationMark = "correct" | "incorrect";
 
 export interface WinClaimState {
@@ -88,14 +101,17 @@ export interface WinClaimState {
 export interface GameState {
   status: GameStatus;
   winnerId: PlayerId | null;
+  gameMode: GameMode;
   board: BoardState;
   drawPile: Card[];
   discardPile: Card[];
   currentTurn: PlayerId;
+  turnNumber: number;
   turnActionUsed: "inspect" | "placeRoute" | "useDtd" | null;
   winClaim: WinClaimState | null;
   playerEffects: Record<PlayerId, { skipNextTurn: boolean }>;
   players: Record<PlayerId, PlayerState>;
+  aiMemory: AiMemoryState;
   /**
    * 当前与 Finish 连通的己方地标数量（按阵营统计）。
    */

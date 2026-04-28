@@ -2,7 +2,7 @@
  * 手牌展示组件：只负责渲染与选择，不做规则判定。
  */
 
-import { ROUTE_CARD_IMAGES } from "../constants";
+import { DTD_CARD_IMAGES, ROUTE_CARD_IMAGES } from "../constants";
 import type { Card, Rotation } from "../types";
 import { CardImage } from "./CardImage";
 
@@ -30,6 +30,7 @@ export function HandPanel({
       {cards.map((card) => {
         const selected = selectedCardId === card.id;
         const isDtd = card.kind === "dtd";
+        const cardLabel = isDtd ? DTD_CARD_LABELS[card.type] : card.routeType;
         return (
           <button
             key={card.id}
@@ -42,28 +43,24 @@ export function HandPanel({
             ].join(" ")}
             onClick={() => onSelect(card.id)}
           >
-            <div className="mb-0.5 text-[9px] uppercase text-slate-500 sm:mb-1 sm:text-[10px]">
-              {isDtd ? "DTD" : "路线"}
-            </div>
-            {isDtd ? (
-              <div className="mx-auto flex aspect-[3/4] h-16 flex-col items-center justify-center rounded border border-orange-200 bg-orange-50 px-1 text-center text-[10px] text-orange-900 sm:h-auto sm:w-24 sm:rounded-md sm:text-xs">
-                <div className="text-[9px] uppercase text-orange-500">DTD</div>
-                <div className="font-medium">{DTD_CARD_LABELS[card.type]}</div>
-              </div>
-            ) : (
+            <div className="relative mx-auto aspect-square w-16 overflow-hidden rounded bg-white text-center text-[10px] sm:w-24 sm:rounded-md sm:text-xs">
               <CardImage
-                src={ROUTE_CARD_IMAGES[card.routeType]}
-                alt={`路线牌 ${card.routeType}`}
-                rotation={selected ? selectedRotation : 0}
-                className="mx-auto flex aspect-[3/4] h-16 items-center justify-center overflow-hidden rounded bg-white p-0.5 text-center text-[10px] text-slate-700 sm:h-auto sm:w-24 sm:rounded-md sm:p-1 sm:text-xs"
-                fallback={
-                  <div>
-                    <div className="text-[10px] uppercase text-slate-500">路线</div>
-                    <div className="font-medium">{card.routeType}</div>
-                  </div>
-                }
+                src={isDtd ? DTD_CARD_IMAGES[card.type] : ROUTE_CARD_IMAGES[card.routeType]}
+                alt={cardLabel}
+                rotation={!isDtd && selected ? selectedRotation : 0}
+                className={[
+                  "absolute inset-0 flex items-center justify-center text-slate-700",
+                  isDtd ? "scale-110 bg-orange-50" : "bg-white",
+                ].join(" ")}
+                imageClassName="object-contain"
+                fallback={<div className="px-1 font-medium">{cardLabel}</div>}
               />
-            )}
+              {isDtd && (
+                <div className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-white/80 px-1.5 py-0.5 text-xs font-medium leading-none text-slate-800 shadow-sm">
+                  {cardLabel}
+                </div>
+              )}
+            </div>
           </button>
         );
       })}
