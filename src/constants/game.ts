@@ -3,7 +3,7 @@
  * 注意：这里只放参数，不放逻辑；逻辑归 engine/。
  */
 
-import type { PlayerId, RouteType } from "../types";
+import type { DtdCardType, DtdEffectType, DtdTargetType, PlayerId, RouteType } from "../types";
 import type { Direction } from "../types";
 
 export const BOARD_ROWS = 4 as const;
@@ -27,6 +27,17 @@ export const ROUTE_DECK: Array<{ routeType: RouteType; count: number }> = [
   { routeType: "turn", count: 8 },
   { routeType: "tee", count: 4 },
   { routeType: "cross", count: 2 },
+];
+
+export const DTD_DECK: Array<{
+  type: DtdCardType;
+  targetType: DtdTargetType;
+  effect: DtdEffectType;
+  count: number;
+}> = [
+  { type: "space-anxiety", targetType: "player", effect: "skip_turn", count: 3 },
+  { type: "route-chaos", targetType: "placed_route", effect: "rotate_placed_routes", count: 3 },
+  { type: "landmark-chaos", targetType: "landmark_or_blank", effect: "swap_landmark_or_blank", count: 3 },
 ];
 
 /**

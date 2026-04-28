@@ -34,9 +34,12 @@ export function ResultView({ onRestart }: { onRestart: () => void }) {
               selectedCellId={null}
               temporaryInspectedLandmarks={{}}
               displayMode="review"
+              showAllHiddenContent
+              useRouteOverlay
               connectedCellIds={connectedCellIds}
               highlightedCellIds={connectedLandmarkCellIds}
               claimSelectedCellIds={claimedLandmarkCellIds}
+              claimValidationResult={game.winClaim?.validationResult}
               onSelectCell={() => {}}
             />
           </div>

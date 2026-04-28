@@ -1,6 +1,7 @@
 import {
   BOARD_COLS,
   BOARD_ROWS,
+  DTD_DECK,
   FINISH_CELL,
   HAND_LIMIT,
   LANDMARK_LABELS,
@@ -13,6 +14,7 @@ import type {
   BoardState,
   Card,
   CellState,
+  DtdCard,
   EngineAction,
   EngineResult,
   GameState,
@@ -20,11 +22,12 @@ import type {
   PlayerId,
   Rotation,
   RoutePlacement,
+  WinClaimValidationMark,
 } from "../types";
 
 export function initializeGame(): GameState {
   const board = createInitialBoard();
-  const drawPile = shuffle(buildRouteDeck());
+  const drawPile = shuffle(buildUnifiedDeck());
 
   const players = {
     red: { id: "red" as const, name: PLAYERS.red.name, handCards: [] as Card[] },
@@ -39,9 +42,14 @@ export function initializeGame(): GameState {
     winnerId: null,
     board,
     drawPile,
+    discardPile: [],
     currentTurn: "red",
     turnActionUsed: null,
     winClaim: null,
+    playerEffects: {
+      red: { skipNextTurn: false },
+      blue: { skipNextTurn: false },
+    },
     players,
     progress: {
       red: countConnectedLandmarks(board, "red"),
@@ -62,6 +70,8 @@ export function applyAction(state: GameState, action: EngineAction): EngineResul
       return inspectCell(state, action);
     case "placeRoute":
       return placeRoute(state, action);
+    case "useDtd":
+      return useDtd(state, action);
     case "startWinClaim":
       return startWinClaim(state, action);
     case "cancelWinClaim":
@@ -77,16 +87,31 @@ export function applyAction(state: GameState, action: EngineAction): EngineResul
   }
 }
 
+function getPlayerControlError(state: GameState, playerId: PlayerId): string | null {
+  if (playerId !== state.currentTurn) {
+    return "当前不是你的回合。";
+  }
+  if (state.playerEffects[playerId]?.skipNextTurn) {
+    return "你受到空间焦虑影响，本回合不能执行行动。";
+  }
+  return null;
+}
+
+function getMainActionError(state: GameState, playerId: PlayerId): string | null {
+  const controlError = getPlayerControlError(state, playerId);
+  if (controlError) return controlError;
+  if (state.turnActionUsed !== null) {
+    return "本回合已执行主行动，不能再次行动。";
+  }
+  return null;
+}
+
 function inspectCell(
   state: GameState,
   action: Extract<EngineAction, { type: "inspectCell" }>
 ): EngineResult {
-  if (action.playerId !== state.currentTurn) {
-    return { ok: false, state, error: "当前不是你的回合。" };
-  }
-  if (state.turnActionUsed !== null) {
-    return { ok: false, state, error: "本回合已执行主行动，不能再次行动。" };
-  }
+  const actionError = getMainActionError(state, action.playerId);
+  if (actionError) return { ok: false, state, error: actionError };
 
   const cell = state.board.cells.find((candidate) => candidate.id === action.cellId);
   if (!cell || cell.kind === "finish" || !cell.hidden) {
@@ -104,20 +129,42 @@ function inspectCell(
 }
 
 function endTurn(state: GameState): GameState {
+  const nextDrawPile = state.drawPile.slice();
+  const currentPlayer = state.players[state.currentTurn];
+  const nextPlayers = {
+    ...state.players,
+    [state.currentTurn]: {
+      ...currentPlayer,
+      handCards: currentPlayer.handCards.slice(),
+    },
+  };
+  refillHand(nextPlayers[state.currentTurn], nextDrawPile);
+
+  const nextPlayerEffects = {
+    ...state.playerEffects,
+    [state.currentTurn]: {
+      ...state.playerEffects[state.currentTurn],
+      skipNextTurn: false,
+    },
+  };
   const next: PlayerId = state.currentTurn === "red" ? "blue" : "red";
-  return { ...state, currentTurn: next, turnActionUsed: null, winClaim: null };
+  return {
+    ...state,
+    drawPile: nextDrawPile,
+    players: nextPlayers,
+    playerEffects: nextPlayerEffects,
+    currentTurn: next,
+    turnActionUsed: null,
+    winClaim: null,
+  };
 }
 
 function placeRoute(
   state: GameState,
   action: Extract<EngineAction, { type: "placeRoute" }>
 ): EngineResult {
-  if (action.playerId !== state.currentTurn) {
-    return { ok: false, state, error: "当前不是你的回合。" };
-  }
-  if (state.turnActionUsed !== null) {
-    return { ok: false, state, error: "本回合已执行主行动，不能再次行动。" };
-  }
+  const actionError = getMainActionError(state, action.playerId);
+  if (actionError) return { ok: false, state, error: actionError };
 
   const player = state.players[action.playerId];
   const cardIndex = player.handCards.findIndex((card) => card.id === action.cardId);
@@ -132,6 +179,10 @@ function placeRoute(
   const replacedRoute = cell.route;
 
   const card = player.handCards[cardIndex];
+  if (card.kind !== "route") {
+    return { ok: false, state, error: "所选手牌不是路线牌。" };
+  }
+
   const placement: RoutePlacement = {
     cardId: card.id,
     routeType: card.routeType,
@@ -163,7 +214,6 @@ function placeRoute(
       },
     ]);
   }
-  refillHand(nextPlayers[action.playerId], nextDrawPile);
 
   const progress = {
     red: countConnectedLandmarks(nextBoard, "red"),
@@ -184,13 +234,174 @@ function placeRoute(
   };
 }
 
+function useDtd(state: GameState, action: Extract<EngineAction, { type: "useDtd" }>): EngineResult {
+  const actionError = getMainActionError(state, action.playerId);
+  if (actionError) return { ok: false, state, error: actionError };
+
+  const player = state.players[action.playerId];
+  const cardIndex = player.handCards.findIndex((card) => card.id === action.cardId);
+  if (cardIndex === -1) {
+    return { ok: false, state, error: "未找到所选手牌。" };
+  }
+
+  const card = player.handCards[cardIndex];
+  if (card.kind !== "dtd") {
+    return { ok: false, state, error: "所选手牌不是 DTD 卡。" };
+  }
+
+  if (card.type === "space-anxiety") {
+    return useSpaceAnxiety(state, action, card, cardIndex);
+  }
+  if (card.type === "route-chaos") {
+    return useRouteChaos(state, action, card, cardIndex);
+  }
+  return useLandmarkChaos(state, action, card, cardIndex);
+}
+
+function useSpaceAnxiety(
+  state: GameState,
+  action: Extract<EngineAction, { type: "useDtd" }>,
+  card: DtdCard,
+  cardIndex: number
+): EngineResult {
+  if (action.target.type !== "player") {
+    return { ok: false, state, error: "空间焦虑需要选择目标玩家。" };
+  }
+  if (action.target.playerId === action.playerId) {
+    return { ok: false, state, error: "空间焦虑不能对自己使用。" };
+  }
+  if (!state.players[action.target.playerId]) {
+    return { ok: false, state, error: "目标玩家不存在。" };
+  }
+
+  const next = consumeDtdCard(state, action.playerId, card, cardIndex);
+  return {
+    ok: true,
+    state: {
+      ...next,
+      playerEffects: {
+        ...next.playerEffects,
+        [action.target.playerId]: {
+          ...next.playerEffects[action.target.playerId],
+          skipNextTurn: true,
+        },
+      },
+    },
+  };
+}
+
+function useRouteChaos(
+  state: GameState,
+  action: Extract<EngineAction, { type: "useDtd" }>,
+  card: DtdCard,
+  cardIndex: number
+): EngineResult {
+  if (action.target.type !== "line") {
+    return { ok: false, state, error: "路线混乱需要选择一整行或一整列。" };
+  }
+
+  const { axis, index } = action.target;
+  const max = axis === "row" ? state.board.rows : state.board.cols;
+  if (index < 0 || index >= max) {
+    return { ok: false, state, error: "路线混乱的行列目标超出棋盘范围。" };
+  }
+
+  const nextBoard: BoardState = {
+    ...state.board,
+    cells: state.board.cells.map((cell) => {
+      const inTarget = axis === "row" ? cell.row === index : cell.col === index;
+      if (!inTarget || cell.kind === "finish" || !cell.route) {
+        return cell;
+      }
+      return {
+        ...cell,
+        route: {
+          ...cell.route,
+          rotation: normalizeRotation(cell.route.rotation + 1),
+        },
+      };
+    }),
+  };
+
+  const next = consumeDtdCard(state, action.playerId, card, cardIndex);
+  return {
+    ok: true,
+    state: {
+      ...next,
+      board: nextBoard,
+      progress: calculateProgress(nextBoard),
+    },
+  };
+}
+
+function useLandmarkChaos(
+  state: GameState,
+  action: Extract<EngineAction, { type: "useDtd" }>,
+  card: DtdCard,
+  cardIndex: number
+): EngineResult {
+  if (action.target.type !== "cells") {
+    return { ok: false, state, error: "地标混乱需要选择两个格子。" };
+  }
+
+  const [firstCellId, secondCellId] = action.target.cellIds;
+  if (firstCellId === secondCellId) {
+    return { ok: false, state, error: "地标混乱需要选择两个不同格子。" };
+  }
+
+  const first = state.board.cells.find((cell) => cell.id === firstCellId);
+  const second = state.board.cells.find((cell) => cell.id === secondCellId);
+  if (!first || !second || first.kind === "finish" || second.kind === "finish" || !first.hidden || !second.hidden) {
+    return { ok: false, state, error: "地标混乱只能选择两个非 Finish 且包含隐藏内容的格子。" };
+  }
+
+  const nextBoard: BoardState = {
+    ...state.board,
+    cells: state.board.cells.map((cell) => {
+      if (cell.id === first.id) {
+        return { ...cell, hidden: second.hidden, revealed: second.revealed };
+      }
+      if (cell.id === second.id) {
+        return { ...cell, hidden: first.hidden, revealed: first.revealed };
+      }
+      return cell;
+    }),
+  };
+
+  const next = consumeDtdCard(state, action.playerId, card, cardIndex);
+  return {
+    ok: true,
+    state: {
+      ...next,
+      board: nextBoard,
+      progress: calculateProgress(nextBoard),
+    },
+  };
+}
+
+function consumeDtdCard(state: GameState, playerId: PlayerId, card: DtdCard, cardIndex: number): GameState {
+  const player = state.players[playerId];
+  const nextHand = player.handCards.slice();
+  nextHand.splice(cardIndex, 1);
+
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: { ...player, handCards: nextHand },
+    },
+    discardPile: [...state.discardPile, card],
+    turnActionUsed: "useDtd",
+    winClaim: null,
+  };
+}
+
 function startWinClaim(
   state: GameState,
   action: Extract<EngineAction, { type: "startWinClaim" }>
 ): EngineResult {
-  if (action.playerId !== state.currentTurn) {
-    return { ok: false, state, error: "当前不是你的回合。" };
-  }
+  const controlError = getPlayerControlError(state, action.playerId);
+  if (controlError) return { ok: false, state, error: controlError };
   if (state.winClaim) {
     return { ok: false, state, error: "当前已在胜利宣告模式。" };
   }
@@ -285,6 +496,8 @@ function submitWinClaim(
     const cell = state.board.cells.find((candidate) => candidate.id === cellId);
     return Boolean(cell && cell.hidden?.kind === "landmark" && cell.hidden.owner === action.playerId);
   });
+  const connectedLandmarkCellIds = new Set(getConnectedLandmarkCellIds(state.board, action.playerId));
+  const validationResult = buildWinClaimValidationResult(state.board, action.playerId, selectedLandmarkCellIds, connectedLandmarkCellIds);
 
   if (!isSuccessfulClaim) {
     const loser = action.playerId;
@@ -298,12 +511,12 @@ function submitWinClaim(
         winClaim: {
           ...state.winClaim,
           selectedLandmarkCellIds,
+          validationResult,
         },
       },
     };
   }
 
-  const connectedLandmarkCellIds = new Set(getConnectedLandmarkCellIds(state.board, action.playerId));
   if (!selectedLandmarkCellIds.every((cellId) => connectedLandmarkCellIds.has(cellId))) {
     const loser = action.playerId;
     const winner = loser === "red" ? "blue" : "red";
@@ -316,6 +529,7 @@ function submitWinClaim(
         winClaim: {
           ...state.winClaim,
           selectedLandmarkCellIds,
+          validationResult,
         },
       },
     };
@@ -330,14 +544,38 @@ function submitWinClaim(
       winClaim: {
         ...state.winClaim,
         selectedLandmarkCellIds,
+        validationResult,
       },
     },
   };
 }
 
+function buildWinClaimValidationResult(
+  board: BoardState,
+  playerId: PlayerId,
+  selectedLandmarkCellIds: number[],
+  connectedLandmarkCellIds: Set<number>
+): Record<number, WinClaimValidationMark> {
+  return selectedLandmarkCellIds.reduce<Record<number, WinClaimValidationMark>>((result, cellId) => {
+    const cell = board.cells.find((candidate) => candidate.id === cellId);
+    result[cellId] =
+      cell && cell.hidden?.kind === "landmark" && cell.hidden.owner === playerId && connectedLandmarkCellIds.has(cellId)
+        ? "correct"
+        : "incorrect";
+    return result;
+  }, {});
+}
+
 function normalizeRotation(value: number): Rotation {
   const n = ((value % 4) + 4) % 4;
   return n as Rotation;
+}
+
+function calculateProgress(board: BoardState): Record<PlayerId, number> {
+  return {
+    red: countConnectedLandmarks(board, "red"),
+    blue: countConnectedLandmarks(board, "blue"),
+  };
 }
 
 function createInitialBoard(): BoardState {
@@ -375,11 +613,33 @@ function buildHiddenContents(): HiddenContent[] {
   return shuffle(list);
 }
 
+function buildUnifiedDeck(): Card[] {
+  return [...buildRouteDeck(), ...buildDtdDeck()];
+}
+
 function buildRouteDeck(): Card[] {
   const cards: Card[] = [];
   ROUTE_DECK.forEach(({ routeType, count }) => {
     for (let i = 0; i < count; i += 1) {
       cards.push({ id: `route-${routeType}-${i}-${randomId()}`, kind: "route", routeType });
+    }
+  });
+  return cards;
+}
+
+function buildDtdDeck(): DtdCard[] {
+  const cards: DtdCard[] = [];
+  DTD_DECK.forEach(({ type, targetType, effect, count }) => {
+    for (let i = 0; i < count; i += 1) {
+      cards.push({
+        id: `dtd-${type}-${i}-${randomId()}`,
+        kind: "dtd",
+        type,
+        targetType,
+        effect,
+        requiresTarget: true,
+        consumesAction: true,
+      });
     }
   });
   return cards;

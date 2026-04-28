@@ -8,7 +8,7 @@
  */
 
 import { create } from "zustand";
-import type { GameState, PlayerId, Rotation } from "../types";
+import type { DtdCardType, EngineAction, GameState, PlayerId, Rotation } from "../types";
 import type { RuleFeedback, Scene, ToastState } from "../types/ui";
 import { applyAction, initializeGame } from "../engine";
 import { WIN_CONNECTED_LANDMARKS } from "../constants";
@@ -22,6 +22,8 @@ type GameUIState = {
   selectedCardId: string | null;
   selectedCellId: number | null;
   selectedRotation: Rotation;
+  routeChaosTarget: { axis: "row" | "col"; index: number } | null;
+  landmarkChaosCellIds: number[];
   toast: ToastState;
   ruleFeedback: RuleFeedback | null;
   temporaryInspectedLandmarks: Record<number, TemporaryInspectedLandmark>;
@@ -34,6 +36,8 @@ type GameActions = {
 
   selectCard: (cardId: string | null) => void;
   selectCell: (cellId: number | null) => void;
+  selectRouteChaosTarget: (target: { axis: "row" | "col"; index: number }) => void;
+  toggleLandmarkChaosCell: (cellId: number) => void;
   rotateSelectedCardLeft: () => void;
   rotateSelectedCardRight: () => void;
 
@@ -41,6 +45,7 @@ type GameActions = {
    * 由 UI 触发的“确认放置”，具体规则由 engine 校验并返回 error。
    */
   confirmPlaceRoute: (args: { playerId: PlayerId; cardId: string; cellId: number; rotation: Rotation }) => void;
+  confirmUseDtd: () => void;
   inspectSelectedCell: () => void;
   startWinClaim: () => void;
   cancelWinClaim: () => void;
@@ -60,26 +65,41 @@ export type GameStoreState = {
 export function selectCanInspectSelectedCell(state: GameStoreState): boolean {
   const game = state.game;
   const selectedCellId = state.ui.selectedCellId;
-  if (!game || selectedCellId == null || state.ui.selectedCardId !== null || game.turnActionUsed !== null) return false;
+  if (
+    !game ||
+    selectedCellId == null ||
+    state.ui.selectedCardId !== null ||
+    game.turnActionUsed !== null ||
+    game.playerEffects[game.currentTurn].skipNextTurn
+  ) {
+    return false;
+  }
   const selected = game.board.cells.find((cell) => cell.id === selectedCellId);
   return Boolean(selected && selected.kind === "normal" && selected.hidden);
 }
 
 export function selectCanSelectHandCard(state: GameStoreState): boolean {
-  return Boolean(state.game && state.game.turnActionUsed === null);
+  return Boolean(state.game && state.game.turnActionUsed === null && !state.game.playerEffects[state.game.currentTurn].skipNextTurn);
 }
 
 export function selectCanConfirmPlaceRoute(state: GameStoreState): boolean {
+  const selectedCard = getSelectedCard(state);
   return Boolean(
     state.game &&
       state.game.turnActionUsed === null &&
-      state.ui.selectedCardId &&
-      typeof state.ui.selectedCellId === "number"
+      selectedCard?.kind === "route" &&
+      typeof state.ui.selectedCellId === "number" &&
+      !state.game.playerEffects[state.game.currentTurn].skipNextTurn
   );
 }
 
 export function selectCanEndTurn(state: GameStoreState): boolean {
-  return Boolean(state.game && state.game.status === "playing" && state.game.turnActionUsed !== null && state.game.winClaim === null);
+  return Boolean(
+    state.game &&
+      state.game.status === "playing" &&
+      (state.game.turnActionUsed !== null || state.game.playerEffects[state.game.currentTurn].skipNextTurn) &&
+      state.game.winClaim === null
+  );
 }
 
 export function selectCanStartWinClaim(state: GameStoreState): boolean {
@@ -87,6 +107,7 @@ export function selectCanStartWinClaim(state: GameStoreState): boolean {
     state.game &&
       state.game.status === "playing" &&
       state.game.winClaim === null &&
+      !state.game.playerEffects[state.game.currentTurn].skipNextTurn &&
       state.game.progress[state.game.currentTurn] >= WIN_CONNECTED_LANDMARKS
   );
 }
@@ -121,6 +142,17 @@ function rotateCounterClockwise(rotation: Rotation): Rotation {
   return ((rotation + ROTATION_COUNT - 1) % ROTATION_COUNT) as Rotation;
 }
 
+function getSelectedCard(state: GameStoreState) {
+  if (!state.game || !state.ui.selectedCardId) return null;
+  return state.game.players[state.game.currentTurn].handCards.find((card) => card.id === state.ui.selectedCardId) ?? null;
+}
+
+function getDtdName(type: DtdCardType): string {
+  if (type === "space-anxiety") return "空间焦虑";
+  if (type === "route-chaos") return "路线混乱";
+  return "地标混乱";
+}
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
   scene: "landing",
   game: null,
@@ -128,6 +160,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     selectedCardId: null,
     selectedCellId: null,
     selectedRotation: 0,
+    routeChaosTarget: null,
+    landmarkChaosCellIds: [],
     toast: initialToast,
     ruleFeedback: null,
     temporaryInspectedLandmarks: {},
@@ -146,6 +180,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         selectedCardId: null,
         selectedCellId: null,
         selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
         ruleFeedback: null,
         temporaryInspectedLandmarks: {},
       },
@@ -162,6 +198,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         selectedCardId: null,
         selectedCellId: null,
         selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
         toast: initialToast,
         ruleFeedback: null,
         temporaryInspectedLandmarks: {},
@@ -177,10 +215,25 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           ...s.ui,
           selectedCardId: nextCardId,
           selectedRotation: nextCardId === null ? 0 : s.ui.selectedRotation,
+          routeChaosTarget: null,
+          landmarkChaosCellIds: [],
         },
       };
     }),
   selectCell: (cellId) => set((s) => ({ ui: { ...s.ui, selectedCellId: cellId } })),
+  selectRouteChaosTarget: (target) => set((s) => ({ ui: { ...s.ui, routeChaosTarget: target } })),
+  toggleLandmarkChaosCell: (cellId) =>
+    set((s) => {
+      const exists = s.ui.landmarkChaosCellIds.includes(cellId);
+      return {
+        ui: {
+          ...s.ui,
+          landmarkChaosCellIds: exists
+            ? s.ui.landmarkChaosCellIds.filter((id) => id !== cellId)
+            : [...s.ui.landmarkChaosCellIds, cellId].slice(-2),
+        },
+      };
+    }),
   rotateSelectedCardLeft: () =>
     set((s) => ({
       ui: {
@@ -214,7 +267,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       ui: {
         ...s.ui,
         selectedCardId: null,
+        selectedCellId: null,
         selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
         ruleFeedback: {
           playerId: args.playerId,
           connectedCount: result.state.progress[args.playerId],
@@ -228,6 +284,61 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             result.state.progress[args.playerId] >= WIN_CONNECTED_LANDMARKS
               ? "已有可能达成胜利条件，请主动宣布胜利。"
               : "",
+        },
+      },
+    }));
+  },
+
+  confirmUseDtd: () => {
+    const state = get();
+    const current = state.game;
+    const selectedCard = getSelectedCard(state);
+    if (!current || !selectedCard || selectedCard.kind !== "dtd") {
+      set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: "请先选择 DTD 卡。" } } }));
+      return;
+    }
+
+    const playerId = current.currentTurn;
+    const opponentId: PlayerId = playerId === "red" ? "blue" : "red";
+    let target: Extract<EngineAction, { type: "useDtd" }>["target"] | null = null;
+    if (selectedCard.type === "space-anxiety") {
+      target = { type: "player", playerId: opponentId };
+    } else if (selectedCard.type === "route-chaos" && state.ui.routeChaosTarget) {
+      target = { type: "line", ...state.ui.routeChaosTarget };
+    } else if (selectedCard.type === "landmark-chaos" && state.ui.landmarkChaosCellIds.length === 2) {
+      target = { type: "cells", cellIds: [state.ui.landmarkChaosCellIds[0], state.ui.landmarkChaosCellIds[1]] };
+    }
+
+    if (!target) {
+      set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: "请先完成 DTD 目标选择。" } } }));
+      return;
+    }
+
+    const result = applyAction(current, { type: "useDtd", playerId, cardId: selectedCard.id, target });
+    if (!result.ok) {
+      set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
+      return;
+    }
+
+    set((s) => ({
+      game: result.state,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+        ruleFeedback: {
+          playerId,
+          connectedCount: result.state.progress[playerId],
+          threshold: WIN_CONNECTED_LANDMARKS,
+          formedAfterPlacement: result.state.progress[playerId] >= WIN_CONNECTED_LANDMARKS,
+        },
+        toast: {
+          open: true,
+          level: "info",
+          message: `已使用 ${getDtdName(selectedCard.type)}。`,
         },
       },
     }));
@@ -309,7 +420,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
       return;
     }
-    set({ game: result.state });
+    set((s) => ({
+      game: result.state,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+      },
+    }));
   },
 
   cancelWinClaim: () => {
@@ -320,7 +441,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
       return;
     }
-    set({ game: result.state });
+    set((s) => ({
+      game: result.state,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+      },
+    }));
   },
 
   toggleWinClaimLandmark: (cellId) => {
@@ -335,7 +466,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ game: result.state, ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
       return;
     }
-    set({ game: result.state });
+    set((s) => ({
+      game: result.state,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+      },
+    }));
   },
 
   submitWinClaim: () => {
@@ -371,7 +512,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((s) => ({ ui: { ...s.ui, toast: { open: true, level: "error", message: result.error } } }));
       return;
     }
-    set({ game: result.state });
+    set((s) => ({
+      game: result.state,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+      },
+    }));
   },
 
   closeToast: () => set((s) => ({ ui: { ...s.ui, toast: initialToast } })),

@@ -47,9 +47,12 @@ export function InGameView() {
   const ui = useGameStore((s) => s.ui);
   const selectCard = useGameStore((s) => s.selectCard);
   const selectCell = useGameStore((s) => s.selectCell);
+  const selectRouteChaosTarget = useGameStore((s) => s.selectRouteChaosTarget);
+  const toggleLandmarkChaosCell = useGameStore((s) => s.toggleLandmarkChaosCell);
   const rotateSelectedCardLeft = useGameStore((s) => s.rotateSelectedCardLeft);
   const rotateSelectedCardRight = useGameStore((s) => s.rotateSelectedCardRight);
   const confirmPlaceRoute = useGameStore((s) => s.confirmPlaceRoute);
+  const confirmUseDtd = useGameStore((s) => s.confirmUseDtd);
   const inspectSelectedCell = useGameStore((s) => s.inspectSelectedCell);
   const startWinClaim = useGameStore((s) => s.startWinClaim);
   const cancelWinClaim = useGameStore((s) => s.cancelWinClaim);
@@ -73,6 +76,11 @@ export function InGameView() {
   }
 
   const current = game.players[game.currentTurn];
+  const selectedCard = ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
+  const isRouteCardSelected = selectedCard?.kind === "route";
+  const selectedDtdType = selectedCard?.kind === "dtd" ? selectedCard.type : null;
+  const isCurrentTurnSkipped = game.playerEffects[game.currentTurn].skipNextTurn;
+  const isWinClaimReviewing = Boolean(game.winClaim?.validationResult);
   const feedbackPlayerName = ui.ruleFeedback ? game.players[ui.ruleFeedback.playerId].name : "—";
   const feedbackConnected = ui.ruleFeedback ? ui.ruleFeedback.connectedCount : 0;
   const feedbackThreshold = ui.ruleFeedback ? ui.ruleFeedback.threshold : WIN_CONNECTED_LANDMARKS;
@@ -80,6 +88,16 @@ export function InGameView() {
   const selectedClaimLandmarkCellIds = game.winClaim?.selectedLandmarkCellIds ?? [];
   const winClaimCandidateCellIds = isInWinClaimMode ? getConnectedNetworkCandidateCellIds(game.board) : [];
   const ruleFeedbackText = `反馈：${feedbackPlayerName} · 连通 ${feedbackConnected}/${feedbackThreshold} · 有效 ${feedbackFormed}`;
+  const canConfirmUseDtd =
+    selectedDtdType === "space-anxiety" ||
+    (selectedDtdType === "route-chaos" && ui.routeChaosTarget !== null) ||
+    (selectedDtdType === "landmark-chaos" && ui.landmarkChaosCellIds.length === 2);
+  const routeChaosTargetText =
+    ui.routeChaosTarget?.axis === "row"
+      ? `第 ${ui.routeChaosTarget.index + 1} 行`
+      : ui.routeChaosTarget?.axis === "col"
+      ? `第 ${ui.routeChaosTarget.index + 1} 列`
+      : "未选择";
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden">
@@ -88,6 +106,7 @@ export function InGameView() {
           <div>
             <div className="text-xs text-slate-500">当前回合</div>
             <div className="text-xl font-semibold text-slate-900">{current.name}</div>
+            {isCurrentTurnSkipped && <div className="text-xs font-medium text-orange-700">受到空间焦虑影响，本回合跳过行动</div>}
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-500">连通地标</div>
@@ -110,9 +129,20 @@ export function InGameView() {
           temporaryInspectedLandmarks={ui.temporaryInspectedLandmarks}
           highlightedCellIds={isInWinClaimMode ? winClaimCandidateCellIds : []}
           claimSelectedCellIds={selectedClaimLandmarkCellIds}
+          claimValidationResult={isWinClaimReviewing ? game.winClaim?.validationResult : undefined}
+          landmarkChaosSelectedCellIds={selectedDtdType === "landmark-chaos" ? ui.landmarkChaosCellIds : []}
+          showAllHiddenContent={isWinClaimReviewing}
+          useRouteOverlay={isWinClaimReviewing}
+          showRouteChaosSelectors={selectedDtdType === "route-chaos" && !isInWinClaimMode}
+          routeChaosTarget={ui.routeChaosTarget}
+          onSelectRouteChaosTarget={selectRouteChaosTarget}
           onSelectCell={(id) => {
             if (isInWinClaimMode) {
               toggleWinClaimLandmark(id);
+              return;
+            }
+            if (selectedDtdType === "landmark-chaos") {
+              toggleLandmarkChaosCell(id);
               return;
             }
             selectCell(id);
@@ -140,7 +170,7 @@ export function InGameView() {
             </div>
           )}
           <div className="flex flex-col gap-2 overflow-visible">
-            {!isInWinClaimMode && ui.selectedCardId && (
+            {!isInWinClaimMode && isRouteCardSelected && (
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="secondary" className="px-3 text-xs" onClick={rotateSelectedCardLeft}>
                   左旋
@@ -162,13 +192,37 @@ export function InGameView() {
               </>
             ) : (
               <>
-                {canInspectSelectedCell && (
+                {selectedDtdType === "space-anxiety" && (
+                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                    目标：{game.players[game.currentTurn === "red" ? "blue" : "red"].name}
+                  </div>
+                )}
+
+                {selectedDtdType === "route-chaos" && (
+                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                    目标：{routeChaosTargetText}
+                  </div>
+                )}
+
+                {selectedDtdType === "landmark-chaos" && (
+                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                    已选：{ui.landmarkChaosCellIds.length}/2
+                  </div>
+                )}
+
+                {selectedDtdType && (
+                  <Button disabled={!canConfirmUseDtd} onClick={confirmUseDtd}>
+                    确认使用 DTD
+                  </Button>
+                )}
+
+                {canInspectSelectedCell && !selectedDtdType && (
                   <Button variant="secondary" onClick={inspectSelectedCell}>
                     查看地标
                   </Button>
                 )}
 
-                {canStartWinClaim && (
+                {canStartWinClaim && !selectedDtdType && (
                   <Button variant="secondary" onClick={startWinClaim}>
                     宣布胜利
                   </Button>
@@ -176,12 +230,12 @@ export function InGameView() {
 
                 {canEndTurn && (
                   <Button variant="secondary" onClick={endTurn}>
-                    结束回合
+                    {isCurrentTurnSkipped ? "跳过回合" : "结束回合"}
                   </Button>
                 )}
 
                 <Button
-                  disabled={!canConfirmPlaceRoute}
+                  disabled={!canConfirmPlaceRoute || Boolean(selectedDtdType)}
                   onClick={() =>
                     confirmPlaceRoute({
                       playerId: game.currentTurn,

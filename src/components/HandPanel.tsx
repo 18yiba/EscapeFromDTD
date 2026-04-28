@@ -6,6 +6,12 @@ import { ROUTE_CARD_IMAGES } from "../constants";
 import type { Card, Rotation } from "../types";
 import { CardImage } from "./CardImage";
 
+const DTD_CARD_LABELS = {
+  "space-anxiety": "空间焦虑",
+  "route-chaos": "路线混乱",
+  "landmark-chaos": "地标混乱",
+} as const;
+
 export function HandPanel({
   cards,
   selectedCardId,
@@ -23,6 +29,7 @@ export function HandPanel({
     <div className="grid grid-cols-3 gap-1.5 pb-1 sm:flex sm:gap-2 sm:overflow-x-auto">
       {cards.map((card) => {
         const selected = selectedCardId === card.id;
+        const isDtd = card.kind === "dtd";
         return (
           <button
             key={card.id}
@@ -35,19 +42,28 @@ export function HandPanel({
             ].join(" ")}
             onClick={() => onSelect(card.id)}
           >
-            <div className="mb-0.5 text-[9px] uppercase text-slate-500 sm:mb-1 sm:text-[10px]">路线</div>
-            <CardImage
-              src={ROUTE_CARD_IMAGES[card.routeType]}
-              alt={`路线牌 ${card.routeType}`}
-              rotation={selected ? selectedRotation : 0}
-              className="mx-auto flex aspect-[3/4] h-16 items-center justify-center overflow-hidden rounded bg-white p-0.5 text-center text-[10px] text-slate-700 sm:h-auto sm:w-24 sm:rounded-md sm:p-1 sm:text-xs"
-              fallback={
-                <div>
-                  <div className="text-[10px] uppercase text-slate-500">路线</div>
-                  <div className="font-medium">{card.routeType}</div>
-                </div>
-              }
-            />
+            <div className="mb-0.5 text-[9px] uppercase text-slate-500 sm:mb-1 sm:text-[10px]">
+              {isDtd ? "DTD" : "路线"}
+            </div>
+            {isDtd ? (
+              <div className="mx-auto flex aspect-[3/4] h-16 flex-col items-center justify-center rounded border border-orange-200 bg-orange-50 px-1 text-center text-[10px] text-orange-900 sm:h-auto sm:w-24 sm:rounded-md sm:text-xs">
+                <div className="text-[9px] uppercase text-orange-500">DTD</div>
+                <div className="font-medium">{DTD_CARD_LABELS[card.type]}</div>
+              </div>
+            ) : (
+              <CardImage
+                src={ROUTE_CARD_IMAGES[card.routeType]}
+                alt={`路线牌 ${card.routeType}`}
+                rotation={selected ? selectedRotation : 0}
+                className="mx-auto flex aspect-[3/4] h-16 items-center justify-center overflow-hidden rounded bg-white p-0.5 text-center text-[10px] text-slate-700 sm:h-auto sm:w-24 sm:rounded-md sm:p-1 sm:text-xs"
+                fallback={
+                  <div>
+                    <div className="text-[10px] uppercase text-slate-500">路线</div>
+                    <div className="font-medium">{card.routeType}</div>
+                  </div>
+                }
+              />
+            )}
           </button>
         );
       })}

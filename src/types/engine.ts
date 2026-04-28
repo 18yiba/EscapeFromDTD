@@ -9,6 +9,12 @@ export type GameStatus = "playing" | "finished";
 
 export type RouteType = "straight" | "turn" | "tee" | "cross";
 
+export type DtdCardType = "space-anxiety" | "route-chaos" | "landmark-chaos";
+
+export type DtdTargetType = "player" | "placed_route" | "landmark_or_blank";
+
+export type DtdEffectType = "skip_turn" | "rotate_placed_routes" | "swap_landmark_or_blank";
+
 export type Direction = "up" | "right" | "down" | "left";
 
 export type Rotation = 0 | 1 | 2 | 3;
@@ -47,11 +53,23 @@ export interface BoardState {
   cells: CellState[];
 }
 
-export interface Card {
+export interface RouteCard {
   id: string;
   kind: "route";
   routeType: RouteType;
 }
+
+export interface DtdCard {
+  id: string;
+  kind: "dtd";
+  type: DtdCardType;
+  targetType: DtdTargetType;
+  requiresTarget: boolean;
+  effect: DtdEffectType;
+  consumesAction: boolean;
+}
+
+export type Card = RouteCard | DtdCard;
 
 export interface PlayerState {
   id: PlayerId;
@@ -59,9 +77,12 @@ export interface PlayerState {
   handCards: Card[];
 }
 
+export type WinClaimValidationMark = "correct" | "incorrect";
+
 export interface WinClaimState {
   claimant: PlayerId;
   selectedLandmarkCellIds: number[];
+  validationResult?: Record<number, WinClaimValidationMark>;
 }
 
 export interface GameState {
@@ -69,9 +90,11 @@ export interface GameState {
   winnerId: PlayerId | null;
   board: BoardState;
   drawPile: Card[];
+  discardPile: Card[];
   currentTurn: PlayerId;
-  turnActionUsed: "inspect" | "placeRoute" | null;
+  turnActionUsed: "inspect" | "placeRoute" | "useDtd" | null;
   winClaim: WinClaimState | null;
+  playerEffects: Record<PlayerId, { skipNextTurn: boolean }>;
   players: Record<PlayerId, PlayerState>;
   /**
    * 当前与 Finish 连通的己方地标数量（按阵营统计）。
@@ -79,10 +102,16 @@ export interface GameState {
   progress: Record<PlayerId, number>;
 }
 
+export type DtdActionTarget =
+  | { type: "player"; playerId: PlayerId }
+  | { type: "line"; axis: "row" | "col"; index: number }
+  | { type: "cells"; cellIds: [number, number] };
+
 export type EngineAction =
   | { type: "init" }
   | { type: "inspectCell"; playerId: PlayerId; cellId: number }
   | { type: "placeRoute"; playerId: PlayerId; cardId: string; cellId: number; rotation: Rotation }
+  | { type: "useDtd"; playerId: PlayerId; cardId: string; target: DtdActionTarget }
   | { type: "startWinClaim"; playerId: PlayerId }
   | { type: "cancelWinClaim"; playerId: PlayerId }
   | { type: "toggleWinClaimLandmark"; playerId: PlayerId; cellId: number }
