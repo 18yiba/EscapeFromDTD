@@ -12,10 +12,15 @@ import { APP_TITLE } from "../constants";
 
 type AppLayoutProps = PropsWithChildren<{
   headerActions?: ReactNode;
+  variant?: "game" | "landing";
 }>;
 
-export function AppLayout({ children, headerActions }: AppLayoutProps) {
+export function AppLayout({ children, headerActions, variant = "game" }: AppLayoutProps) {
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
+
+  if (variant === "landing") {
+    return <div className="min-h-dvh bg-[#f7f1e4] text-[#243126]">{children}</div>;
+  }
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white text-slate-900">

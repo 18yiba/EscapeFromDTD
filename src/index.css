@@ -7,10 +7,16 @@
 
 :root {
   color-scheme: light;
+  background: #f7f1e4;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
     "Apple Color Emoji", "Segoe UI Emoji";
+  background: #f7f1e4;
 }

@@ -16,7 +16,7 @@ export default function App() {
   const restart = useGameStore((s) => s.restart);
 
   return (
-    <AppLayout headerActions={scene === "inGame" ? <InGameHeaderActions /> : null}>
+    <AppLayout variant={scene === "landing" ? "landing" : "game"} headerActions={scene === "inGame" ? <InGameHeaderActions /> : null}>
       {scene === "landing" && <LandingView onEnter={startNewGame} />}
       {scene === "inGame" && <InGameView />}
       {scene === "result" && <ResultView onRestart={restart} />}
