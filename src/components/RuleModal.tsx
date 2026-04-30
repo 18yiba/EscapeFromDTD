@@ -9,14 +9,33 @@ type RuleModalProps = {
   onClose: () => void;
 };
 
-const RULES = [
-  "两名玩家轮流行动",
-  "每回合只能选择一个主行动：查看 1 张地标 或 使用 1 张手牌",
-  "使用路线牌连接路径",
-  "通过端口匹配形成有效连通",
-  "连通达到阈值后不会自动获胜，必须主动宣布胜利",
-  "宣布胜利时，只能从当前与 Finish 连通的路线网络中的牌位翻验 3 张牌",
-  "若翻验的 3 张牌全部属于当前玩家，则宣告成功；否则直接宣告失败并进入结算",
+const RULE_SECTIONS = [
+  {
+    title: "基本规则",
+    items: [
+      "两名玩家轮流行动",
+      "游戏开始时，每名玩家有三张随机手牌（路线或者功能牌），4×4 棋盘内为随机隐藏地标",
+      "玩家每回合只能选择一种行动：查看 1 张任意地标或使用 1 张任意手牌",
+      "除地标牌外，棋盘内还分布有空白占位牌",
+    ],
+  },
+  {
+    title: "胜利条件",
+    items: [
+      "在地标上放置路线牌，连成路径达到终点",
+      "路径必须穿过 3 张己方地标，且与右上角终点连通，当完成连通时，可以宣布胜利",
+      "宣布胜利后，玩家需要进行地标验证，从路径中选出 3 张己方地标",
+      "若查验正确，则游戏胜利；否则游戏失败，对手胜利",
+    ],
+  },
+  {
+    title: "DTD 牌效果",
+    items: [
+      "空间焦虑牌：指定玩家无法进行下一个行动",
+      "地标混乱牌：任选棋盘内对调两个地标牌",
+      "路线混乱牌：任选一行/一列路线顺时针旋转 90°",
+    ],
+  },
 ];
 
 export function RuleModal({ onClose }: RuleModalProps) {
@@ -37,13 +56,20 @@ export function RuleModal({ onClose }: RuleModalProps) {
           </Button>
         </div>
 
-        <ul className="space-y-2 pl-5 text-sm text-slate-700">
-          {RULES.map((rule) => (
-            <li key={rule} className="list-disc">
-              {rule}
-            </li>
+        <div className="max-h-[min(72vh,32rem)] space-y-4 overflow-y-auto pr-1">
+          {RULE_SECTIONS.map((section) => (
+            <section key={section.title}>
+              <h3 className="text-sm font-semibold text-slate-900">{section.title}</h3>
+              <ul className="mt-2 space-y-2 pl-5 text-sm leading-6 text-slate-700">
+                {section.items.map((rule) => (
+                  <li key={rule} className="list-disc">
+                    {rule}
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );
