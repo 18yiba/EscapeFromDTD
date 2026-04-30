@@ -23,21 +23,18 @@ export function AppLayout({ children, headerActions, variant = "game" }: AppLayo
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-white text-slate-900 lg:bg-[linear-gradient(180deg,#f7f3eb_0%,#efe8dc_100%)]">
-      <header className="shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur lg:border-[#e2d6c6] lg:bg-[#fffaf3]/90">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[linear-gradient(180deg,#f7f3eb_0%,#efe8dc_100%)] text-slate-900">
+      <header className="shrink-0 border-b border-[#e2d6c6] bg-[#fffaf3]/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-screen-sm items-center justify-between gap-3 px-4 lg:h-[60px] lg:max-w-none lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <div className="hidden text-sm font-semibold text-slate-900 lg:block">{APP_TITLE}</div>
             <div className="text-sm font-semibold lg:hidden">{APP_TITLE}</div>
-            <Button variant="secondary" className="px-3 py-1.5 text-xs lg:hidden" onClick={() => setIsRuleModalOpen(true)}>
-              规则
-            </Button>
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-end lg:justify-between lg:gap-4">
             {headerActions}
             <Button
               variant="secondary"
-              className="hidden px-3 py-1.5 text-xs lg:inline-flex"
+              className="px-3 py-1.5 text-xs"
               onClick={() => setIsRuleModalOpen(true)}
             >
               规则

@@ -127,17 +127,20 @@ export function InGameView() {
       : ui.routeChaosTarget?.axis === "col"
       ? `第 ${ui.routeChaosTarget.index + 1} 列`
       : "未选择";
-  const actionButtonClass = "lg:min-h-[2.75rem] lg:rounded-[18px] lg:text-sm";
-  const primaryActionButtonClass = `${actionButtonClass} lg:bg-[#1f2d44] lg:text-white lg:hover:bg-[#2d4263]`;
+  const actionButtonClass =
+    "min-h-[2.75rem] rounded-[18px] border border-[#1f2d44] px-4 py-2 text-sm font-semibold " +
+    "!bg-[#1f2d44] !text-white hover:!bg-[#2d4263] " +
+    "disabled:!border-[#9aa3af] disabled:!bg-[#9aa3af] disabled:!text-white disabled:!opacity-100 disabled:hover:!bg-[#9aa3af]";
+  const primaryActionButtonClass = actionButtonClass;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden lg:grid lg:grid-cols-[minmax(760px,1fr)_340px] lg:gap-6 lg:overflow-hidden">
       <div className="shrink-0 lg:hidden">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-[20px] border border-[#e6dbcc] bg-white/75 px-3 py-2 shadow-[0_8px_24px_rgba(70,62,43,0.05)]">
           <div className="flex min-w-0 items-start gap-2">
             <Button
               variant="secondary"
-              className="h-8 w-8 shrink-0 px-0 py-0 text-base"
+              className="h-8 w-8 shrink-0 rounded-xl bg-[#eef1ea] px-0 py-0 text-base text-slate-800 hover:bg-white"
               aria-label="返回模式选择"
               onClick={returnToLanding}
             >
@@ -163,13 +166,13 @@ export function InGameView() {
           </div>
         </div>
         {canStartWinClaim && (
-          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900">
+          <div className="mt-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900">
             已满足宣告条件
           </div>
         )}
       </div>
 
-      <div className="flex w-full shrink-0 items-center justify-center overflow-visible rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:p-3 lg:min-h-0 lg:shrink lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+      <div className="flex w-full shrink-0 items-center justify-center overflow-visible rounded-[24px] bg-white/80 p-2 shadow-[0_8px_30px_rgba(0,0,0,0.06)] sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:p-3 lg:min-h-0 lg:shrink lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none">
         <div className="relative flex w-full items-center justify-center lg:w-[min(74vh,900px)] lg:max-w-[80vw] lg:rounded-[24px] lg:bg-white/80 lg:p-4 lg:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
           <BoardGrid
             board={game.board}
@@ -202,7 +205,7 @@ export function InGameView() {
 
       <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start lg:min-h-0 lg:w-[340px] lg:flex-col lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-[#e6dbcc] lg:bg-white/75 lg:p-4 lg:shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
         <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2 lg:flex lg:min-h-0 lg:w-full lg:flex-col lg:space-y-3 lg:overflow-hidden">
-          <div className="text-xs font-medium text-slate-700 lg:text-sm lg:font-semibold lg:text-slate-900">
+          <div className="text-xs font-semibold text-slate-800 lg:text-sm lg:text-slate-900">
             {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
           </div>
           <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
@@ -214,7 +217,7 @@ export function InGameView() {
               onSelect={(id) => selectCard(id)}
             />
           </div>
-          <div className="text-[11px] leading-4 text-slate-500 lg:rounded-2xl lg:border lg:border-slate-200/80 lg:bg-white/70 lg:px-3 lg:py-2 lg:text-xs lg:text-slate-600">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2 text-[11px] leading-4 text-slate-600 lg:text-xs">
             {ruleFeedbackText}
           </div>
           {isAiTurn && (
@@ -234,7 +237,7 @@ export function InGameView() {
           )}
         </div>
 
-        <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5 lg:w-full lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+        <div className="w-full shrink-0 overflow-visible rounded-[24px] border border-[#e6dbcc] bg-white/75 p-2.5 shadow-[0_8px_24px_rgba(70,62,43,0.05)] sm:w-72 lg:w-full lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
           {isInWinClaimMode && (
             <div className="mb-1.5 text-right text-[11px] text-slate-500">
               已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
@@ -264,19 +267,19 @@ export function InGameView() {
             ) : (
               <>
                 {selectedDtdType === "space-anxiety" && (
-                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-900">
                     目标：{game.players[game.currentTurn === "red" ? "blue" : "red"].name}
                   </div>
                 )}
 
                 {selectedDtdType === "route-chaos" && (
-                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-900">
                     目标：{routeChaosTargetText}
                   </div>
                 )}
 
                 {selectedDtdType === "landmark-chaos" && (
-                  <div className="rounded-md border border-orange-100 bg-orange-50 px-2 py-1.5 text-xs text-orange-900">
+                  <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-900">
                     已选：{ui.landmarkChaosCellIds.length}/2
                   </div>
                 )}
