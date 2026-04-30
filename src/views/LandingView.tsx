@@ -211,7 +211,7 @@ export function LandingView({ onEnter }: LandingViewProps) {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 sm:gap-4">
               {BACKGROUND_TILES.map((tile, index) => (
                 <BackgroundTile key={tile.caption} tile={tile} className={index === 1 ? "lg:translate-y-8" : ""} />
               ))}
@@ -292,17 +292,17 @@ function BackgroundTile({ tile, className }: { tile: (typeof BACKGROUND_TILES)[n
   return (
     <article
       className={[
-        "space-y-3 rounded-2xl bg-[#f7f1e4] p-4 shadow-[0_12px_32px_rgba(70,62,43,0.1)] transition hover:scale-[1.01] hover:shadow-[0_16px_42px_rgba(70,62,43,0.14)]",
+        "h-full min-w-0 space-y-2 rounded-2xl bg-[#f7f1e4] p-3 shadow-[0_12px_32px_rgba(70,62,43,0.1)] transition hover:scale-[1.01] hover:shadow-[0_16px_42px_rgba(70,62,43,0.14)] sm:space-y-3 sm:p-4",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <div className="flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#78976f] bg-[#fffdf7] text-[#c2c4bd]">
-        <Icon className="h-9 w-9" />
-        <span className="mt-2 text-[10px] font-medium text-[#b3b5ae]">{tile.placeholderLabel}</span>
+        <Icon className="h-7 w-7 sm:h-9 sm:w-9" />
+        <span className="mt-1 text-center text-[9px] font-medium leading-tight text-[#b3b5ae] sm:mt-2 sm:text-[10px]">{tile.placeholderLabel}</span>
       </div>
-      <p className="text-center text-xs font-bold text-[#243126]">{tile.caption}</p>
+      <p className="text-center text-[11px] font-bold leading-tight text-[#243126] sm:text-xs">{tile.caption}</p>
     </article>
   );
 }
