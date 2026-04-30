@@ -26,7 +26,7 @@ export function HandPanel({
   onSelect: (cardId: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-1.5 pb-1 sm:flex sm:gap-2 sm:overflow-x-auto">
+    <div className="grid grid-cols-3 gap-1.5 pb-1 sm:flex sm:gap-2 sm:overflow-x-auto lg:grid lg:grid-cols-2 lg:gap-3 lg:overflow-visible lg:pb-0">
       {cards.map((card) => {
         const selected = selectedCardId === card.id;
         const isDtd = card.kind === "dtd";
@@ -37,13 +37,13 @@ export function HandPanel({
             type="button"
             disabled={disabled}
             className={[
-              "min-w-0 rounded-md border px-1.5 py-1 text-left text-[10px] sm:min-w-28 sm:rounded-lg sm:px-2 sm:py-2 sm:text-xs",
+              "min-w-0 rounded-md border px-1.5 py-1 text-left text-[10px] sm:min-w-28 sm:rounded-lg sm:px-2 sm:py-2 sm:text-xs lg:min-w-0 lg:rounded-xl lg:p-2.5",
               selected ? "border-slate-900 bg-white" : "border-slate-200 bg-slate-50 hover:bg-slate-100",
               disabled ? "cursor-not-allowed opacity-50 hover:bg-slate-50" : "",
             ].join(" ")}
             onClick={() => onSelect(card.id)}
           >
-            <div className="relative mx-auto aspect-square w-16 overflow-hidden rounded bg-white text-center text-[10px] sm:w-24 sm:rounded-md sm:text-xs">
+            <div className="relative mx-auto aspect-square w-16 overflow-hidden rounded bg-white text-center text-[10px] sm:w-24 sm:rounded-md sm:text-xs lg:w-full lg:rounded-lg">
               <CardImage
                 src={isDtd ? DTD_CARD_IMAGES[card.type] : ROUTE_CARD_IMAGES[card.routeType]}
                 alt={cardLabel}

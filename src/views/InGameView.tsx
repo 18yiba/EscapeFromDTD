@@ -23,13 +23,35 @@ import {
 export function InGameHeaderActions() {
   const startNewGame = useGameStore((s) => s.startNewGame);
   const gameMode = useGameStore((s) => s.game?.gameMode ?? "hotseat");
+  const game = useGameStore((s) => s.game);
+  const returnToLanding = useGameStore((s) => s.returnToLanding);
   const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState(false);
+  const current = game ? game.players[game.currentTurn] : null;
+  const turnLabel = current ? (game?.gameMode === "ai" && game.currentTurn === "blue" ? `${current.name} AI` : current.name) : "—";
 
   return (
     <>
-      <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setIsRestartConfirmOpen(true)}>
-        重来一局
-      </Button>
+      <div className="contents lg:hidden">
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setIsRestartConfirmOpen(true)}>
+          重来一局
+        </Button>
+      </div>
+      <div className="hidden min-w-0 flex-1 items-center justify-between gap-4 lg:flex">
+        <Button variant="secondary" className="h-9 px-3 py-1.5 text-xs" onClick={returnToLanding}>
+          返回主页
+        </Button>
+        {game && (
+          <div className="flex min-w-0 items-center justify-center gap-5 text-[13px] font-semibold text-slate-700">
+            <div className="truncate">当前回合：{turnLabel}</div>
+            <div className="truncate">
+              连通地标：红 {game.progress.red} / 蓝 {game.progress.blue}
+            </div>
+          </div>
+        )}
+        <Button variant="secondary" className="h-9 px-3 py-1.5 text-xs" onClick={() => setIsRestartConfirmOpen(true)}>
+          重来一局
+        </Button>
+      </div>
       {isRestartConfirmOpen && (
         <RestartConfirmModal
           onCancel={() => setIsRestartConfirmOpen(false)}
@@ -105,10 +127,12 @@ export function InGameView() {
       : ui.routeChaosTarget?.axis === "col"
       ? `第 ${ui.routeChaosTarget.index + 1} 列`
       : "未选择";
+  const actionButtonClass = "lg:min-h-[2.75rem] lg:rounded-[18px] lg:text-sm";
+  const primaryActionButtonClass = `${actionButtonClass} lg:bg-[#1f2d44] lg:text-white lg:hover:bg-[#2d4263]`;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden">
-      <div className="shrink-0">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden lg:grid lg:grid-cols-[minmax(760px,1fr)_340px] lg:gap-6 lg:overflow-hidden">
+      <div className="shrink-0 lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-start gap-2">
             <Button
@@ -145,51 +169,72 @@ export function InGameView() {
         )}
       </div>
 
-      <div className="flex w-full shrink-0 items-center justify-center overflow-visible rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:p-3">
-        <BoardGrid
-          board={game.board}
-          selectedCellId={ui.selectedCellId}
-          temporaryInspectedLandmarks={ui.temporaryInspectedLandmarks}
-          temporaryInspectedBlankCellIds={ui.temporaryInspectedBlankCellIds}
-          highlightedCellIds={isInWinClaimMode ? winClaimCandidateCellIds : []}
-          claimSelectedCellIds={selectedClaimLandmarkCellIds}
-          claimValidationResult={isWinClaimReviewing ? game.winClaim?.validationResult : undefined}
-          landmarkChaosSelectedCellIds={selectedDtdType === "landmark-chaos" ? ui.landmarkChaosCellIds : []}
-          showAllHiddenContent={isWinClaimReviewing}
-          useRouteOverlay={isWinClaimReviewing}
-          showRouteChaosSelectors={selectedDtdType === "route-chaos" && !isInWinClaimMode}
-          routeChaosTarget={ui.routeChaosTarget}
-          onSelectRouteChaosTarget={selectRouteChaosTarget}
-          onSelectCell={(id) => {
-            if (isInWinClaimMode) {
-              toggleWinClaimLandmark(id);
-              return;
-            }
-            if (selectedDtdType === "landmark-chaos") {
-              toggleLandmarkChaosCell(id);
-              return;
-            }
-            selectCell(id);
-          }}
-        />
+      <div className="flex w-full shrink-0 items-center justify-center overflow-visible rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:min-h-0 sm:flex-1 sm:overflow-hidden sm:p-3 lg:min-h-0 lg:shrink lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+        <div className="relative flex w-full items-center justify-center lg:w-[min(74vh,900px)] lg:max-w-[80vw] lg:rounded-[24px] lg:bg-white/80 lg:p-4 lg:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+          <BoardGrid
+            board={game.board}
+            selectedCellId={ui.selectedCellId}
+            temporaryInspectedLandmarks={ui.temporaryInspectedLandmarks}
+            temporaryInspectedBlankCellIds={ui.temporaryInspectedBlankCellIds}
+            highlightedCellIds={isInWinClaimMode ? winClaimCandidateCellIds : []}
+            claimSelectedCellIds={selectedClaimLandmarkCellIds}
+            claimValidationResult={isWinClaimReviewing ? game.winClaim?.validationResult : undefined}
+            landmarkChaosSelectedCellIds={selectedDtdType === "landmark-chaos" ? ui.landmarkChaosCellIds : []}
+            showAllHiddenContent={isWinClaimReviewing}
+            useRouteOverlay={isWinClaimReviewing}
+            showRouteChaosSelectors={selectedDtdType === "route-chaos" && !isInWinClaimMode}
+            routeChaosTarget={ui.routeChaosTarget}
+            onSelectRouteChaosTarget={selectRouteChaosTarget}
+            onSelectCell={(id) => {
+              if (isInWinClaimMode) {
+                toggleWinClaimLandmark(id);
+                return;
+              }
+              if (selectedDtdType === "landmark-chaos") {
+                toggleLandmarkChaosCell(id);
+                return;
+              }
+              selectCell(id);
+            }}
+          />
+        </div>
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
-          <div className="text-xs font-medium text-slate-700">
+      <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start lg:min-h-0 lg:w-[340px] lg:flex-col lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-[#e6dbcc] lg:bg-white/75 lg:p-4 lg:shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
+        <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2 lg:flex lg:min-h-0 lg:w-full lg:flex-col lg:space-y-3 lg:overflow-hidden">
+          <div className="text-xs font-medium text-slate-700 lg:text-sm lg:font-semibold lg:text-slate-900">
             {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
           </div>
-          <HandPanel
-            cards={visibleHandPlayer.handCards}
-            selectedCardId={ui.selectedCardId}
-            selectedRotation={ui.selectedRotation}
-            disabled={!canSelectHandCard}
-            onSelect={(id) => selectCard(id)}
-          />
-          <div className="text-[11px] leading-4 text-slate-500">{ruleFeedbackText}</div>
+          <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+            <HandPanel
+              cards={visibleHandPlayer.handCards}
+              selectedCardId={ui.selectedCardId}
+              selectedRotation={ui.selectedRotation}
+              disabled={!canSelectHandCard}
+              onSelect={(id) => selectCard(id)}
+            />
+          </div>
+          <div className="text-[11px] leading-4 text-slate-500 lg:rounded-2xl lg:border lg:border-slate-200/80 lg:bg-white/70 lg:px-3 lg:py-2 lg:text-xs lg:text-slate-600">
+            {ruleFeedbackText}
+          </div>
+          {isAiTurn && (
+            <div className="hidden text-xs font-medium text-sky-700 lg:block">
+              {isAiThinking ? "AI 正在思考..." : "AI 正在行动"}
+            </div>
+          )}
+          {isCurrentTurnSkipped && (
+            <div className="hidden rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 lg:block">
+              受到空间焦虑影响，本回合跳过行动
+            </div>
+          )}
+          {canStartWinClaim && (
+            <div className="hidden rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 lg:block">
+              已满足宣告条件
+            </div>
+          )}
         </div>
 
-        <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5">
+        <div className="w-full shrink-0 rounded-lg border border-slate-200 bg-white p-2 overflow-visible sm:w-72 sm:p-2.5 lg:w-full lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
           {isInWinClaimMode && (
             <div className="mb-1.5 text-right text-[11px] text-slate-500">
               已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
@@ -198,10 +243,10 @@ export function InGameView() {
           <div className="flex flex-col gap-2 overflow-visible">
             {!isInWinClaimMode && isRouteCardSelected && (
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" className="px-3 text-xs" onClick={rotateSelectedCardLeft}>
+                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} onClick={rotateSelectedCardLeft}>
                   左旋
                 </Button>
-                <Button variant="secondary" className="px-3 text-xs" onClick={rotateSelectedCardRight}>
+                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} onClick={rotateSelectedCardRight}>
                   右旋
                 </Button>
               </div>
@@ -209,10 +254,10 @@ export function InGameView() {
 
             {isInWinClaimMode ? (
               <>
-                <Button variant="secondary" className="w-full" onClick={cancelWinClaim}>
+                <Button variant="secondary" className={`w-full ${actionButtonClass}`} onClick={cancelWinClaim}>
                   取消宣告
                 </Button>
-                <Button className="w-full" onClick={submitWinClaim}>
+                <Button className={`w-full ${primaryActionButtonClass}`} onClick={submitWinClaim}>
                   提交验证
                 </Button>
               </>
@@ -237,30 +282,31 @@ export function InGameView() {
                 )}
 
                 {selectedDtdType && (
-                  <Button disabled={!canConfirmUseDtd} onClick={confirmUseDtd}>
+                  <Button className={primaryActionButtonClass} disabled={!canConfirmUseDtd} onClick={confirmUseDtd}>
                     确认使用 DTD
                   </Button>
                 )}
 
                 {canInspectSelectedCell && !selectedDtdType && (
-                  <Button variant="secondary" onClick={inspectSelectedCell}>
+                  <Button variant="secondary" className={actionButtonClass} onClick={inspectSelectedCell}>
                     查看地标
                   </Button>
                 )}
 
                 {canStartWinClaim && !selectedDtdType && (
-                  <Button variant="secondary" onClick={startWinClaim}>
+                  <Button variant="secondary" className={actionButtonClass} onClick={startWinClaim}>
                     宣布胜利
                   </Button>
                 )}
 
                 {canEndTurn && (
-                  <Button variant="secondary" onClick={endTurn}>
+                  <Button variant="secondary" className={actionButtonClass} onClick={endTurn}>
                     {isCurrentTurnSkipped ? "跳过回合" : "结束回合"}
                   </Button>
                 )}
 
                 <Button
+                  className={primaryActionButtonClass}
                   disabled={!canConfirmPlaceRoute || Boolean(selectedDtdType)}
                   onClick={() =>
                     confirmPlaceRoute({
