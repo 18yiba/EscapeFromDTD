@@ -7,6 +7,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { useState } from "react";
 import { Button } from "../components/Button";
+import { ContactModal } from "../components/ContactModal";
 import { RuleModal } from "../components/RuleModal";
 import { APP_TITLE } from "../constants";
 
@@ -17,6 +18,7 @@ type AppLayoutProps = PropsWithChildren<{
 
 export function AppLayout({ children, headerActions, variant = "game" }: AppLayoutProps) {
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   if (variant === "landing") {
     return <div className="min-h-dvh bg-[#f7f1e4] text-[#243126]">{children}</div>;
@@ -35,6 +37,13 @@ export function AppLayout({ children, headerActions, variant = "game" }: AppLayo
             <Button
               variant="secondary"
               className="px-3 py-1.5 text-xs"
+              onClick={() => setIsContactModalOpen(true)}
+            >
+              联系
+            </Button>
+            <Button
+              variant="secondary"
+              className="px-3 py-1.5 text-xs"
               onClick={() => setIsRuleModalOpen(true)}
             >
               规则
@@ -44,6 +53,7 @@ export function AppLayout({ children, headerActions, variant = "game" }: AppLayo
       </header>
       <main className="mx-auto flex min-h-0 w-full max-w-screen-sm flex-1 px-4 py-4 lg:max-w-none lg:px-6 lg:py-5">{children}</main>
       {isRuleModalOpen && <RuleModal onClose={() => setIsRuleModalOpen(false)} />}
+      {isContactModalOpen && <ContactModal onClose={() => setIsContactModalOpen(false)} />}
     </div>
   );
 }
