@@ -15,7 +15,7 @@ type CopyKey = "researchEmail" | "researchEmail2" | "gameEmail" | "gamexhs";
 
 const contactLinks = {
   researchEmail: "aohan_xu@zju.edu.cn",
-  researchEmail2: "138-xxxx-xxxx",
+  researchEmail2: "duxiaoguo@zju.edu.cn",
   gameEmail: "haorana710@zju.edu.cn",
   gamexhs: "955392308",
   wechatLink: "#",
