@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { ContactModal } from "../components/ContactModal";
 import { RuleModal } from "../components/RuleModal";
 import { APP_TITLE } from "../constants";
 import type { GameMode } from "../types";
@@ -16,10 +17,9 @@ type NavItem =
   | { label: string; href: string; type: "anchor" }
   | { label: string; type: "rules" };
 
-type FooterLink = {
-  label: string;
-  href: string;
-};
+type FooterLink =
+  | { label: string; href: string; type?: "link" }
+  | { label: string; type: "contact" };
 
 const EXTERNAL_LINKS = {
   lab: "#", // TODO: Replace with Cognomics Lab homepage when available.
@@ -38,7 +38,7 @@ const LANDING_NAV_ITEMS: NavItem[] = [
 const FOOTER_LINKS: FooterLink[] = [
   { label: "隐私政策", href: EXTERNAL_LINKS.privacy },
   { label: "关于我们", href: EXTERNAL_LINKS.about },
-  { label: "联系反馈", href: EXTERNAL_LINKS.feedback },
+  { label: "联系反馈", type: "contact" },
   { label: "GitHub", href: EXTERNAL_LINKS.github },
 ];
 
@@ -63,10 +63,10 @@ const MECHANICS = [
 const BACKGROUND_TILES: Array<{
   placeholderLabel: string;
   caption: string;
-  icon: "map" | "alert";
+  imageSrc: string;
 }> = [
-  { placeholderLabel: "地图底板 5x5", caption: "认知地图构建", icon: "map" },
-  { placeholderLabel: "DTD 干扰牌", caption: "模拟认知失调", icon: "alert" },
+  { placeholderLabel: "地图底板 5x5", caption: "认知地图构建", imageSrc: "/assets/landing/map-build.png" },
+  { placeholderLabel: "DTD 干扰牌", caption: "模拟认知失调", imageSrc: "/assets/landing/dtd-card.png" },
 ];
 
 const LANDING_ACTIONS: Array<{ label: string; mode: GameMode; tone: "primary" | "secondary" }> = [
@@ -76,6 +76,7 @@ const LANDING_ACTIONS: Array<{ label: string; mode: GameMode; tone: "primary" | 
 
 export function LandingView({ onEnter }: LandingViewProps) {
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const openRules = () => {
@@ -255,16 +256,28 @@ export function LandingView({ onEnter }: LandingViewProps) {
             </div>
           </a>
           <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm text-[#5b6654]">
-            {FOOTER_LINKS.map((link) => (
-              <a key={link.label} href={link.href} className="transition hover:text-[#243126] hover:underline">
-                {link.label}
-              </a>
-            ))}
+            {FOOTER_LINKS.map((link) =>
+              link.type === "contact" ? (
+                <button
+                  key={link.label}
+                  type="button"
+                  className="transition hover:text-[#243126] hover:underline"
+                  onClick={() => setIsContactModalOpen(true)}
+                >
+                  {link.label}
+                </button>
+              ) : (
+                <a key={link.label} href={link.href} className="transition hover:text-[#243126] hover:underline">
+                  {link.label}
+                </a>
+              )
+            )}
           </div>
         </div>
       </footer>
 
       {isRuleModalOpen && <RuleModal onClose={() => setIsRuleModalOpen(false)} />}
+      {isContactModalOpen && <ContactModal onClose={() => setIsContactModalOpen(false)} />}
     </div>
   );
 }
@@ -287,8 +300,6 @@ function LandingButton({ tone, onClick, children }: { tone: "primary" | "seconda
 }
 
 function BackgroundTile({ tile, className }: { tile: (typeof BACKGROUND_TILES)[number]; className?: string }) {
-  const Icon = tile.icon === "map" ? MapPlaceholderIcon : AlertPlaceholderIcon;
-
   return (
     <article
       className={[
@@ -299,7 +310,7 @@ function BackgroundTile({ tile, className }: { tile: (typeof BACKGROUND_TILES)[n
         .join(" ")}
     >
       <div className="flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#78976f] bg-[#fffdf7] text-[#c2c4bd]">
-        <Icon className="h-7 w-7 sm:h-9 sm:w-9" />
+        <img src={tile.imageSrc} alt={tile.placeholderLabel} className="h-[78%] w-[78%] object-contain" />
         <span className="mt-1 text-center text-[9px] font-medium leading-tight text-[#b3b5ae] sm:mt-2 sm:text-[10px]">{tile.placeholderLabel}</span>
       </div>
       <p className="text-center text-[11px] font-bold leading-tight text-[#243126] sm:text-xs">{tile.caption}</p>
@@ -333,26 +344,6 @@ function CloseIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
       <path d="m6 6 12 12" />
       <path d="m18 6-12 12" />
-    </svg>
-  );
-}
-
-function MapPlaceholderIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-      <path d="m3 6 5-2 8 3 5-2v13l-5 2-8-3-5 2V6Z" />
-      <path d="M8 4v13" />
-      <path d="M16 7v13" />
-    </svg>
-  );
-}
-
-function AlertPlaceholderIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-      <path d="M12 3 4.5 6.2v5.7c0 4.2 3 7.7 7.5 9.1 4.5-1.4 7.5-4.9 7.5-9.1V6.2L12 3Z" />
-      <path d="M12 8v5" />
-      <path d="M12 16h.01" />
     </svg>
   );
 }
