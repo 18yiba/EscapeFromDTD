@@ -65,8 +65,8 @@ const BACKGROUND_TILES: Array<{
   caption: string;
   imageSrc: string;
 }> = [
-  { caption: "认知地图构建", imageSrc: "/assets/landing/map-build.png" },
-  { caption: "模拟认知失调", imageSrc: "/assets/landing/dtd-card.png" },
+  { placeholderLabel: "地图底板 5x5", caption: "认知地图构建", imageSrc: "/assets/landing/map-build.png" },
+  { placeholderLabel: "DTD 干扰牌", caption: "模拟认知失调", imageSrc: "/assets/landing/dtd-card.png" },
 ];
 
 const LANDING_ACTIONS: Array<{ label: string; mode: GameMode; tone: "primary" | "secondary" }> = [
