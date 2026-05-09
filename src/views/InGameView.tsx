@@ -9,7 +9,10 @@ import { BoardGrid } from "../components/BoardGrid";
 import { HandPanel } from "../components/HandPanel";
 import { RestartConfirmModal } from "../components/RestartConfirmModal";
 import { WIN_CONNECTED_LANDMARKS } from "../constants";
+import { getColorLabel } from "../online/playerMapping";
 import { getConnectedNetworkCandidateCellIds } from "../utils";
+import type { DtdActionTarget, EngineAction, PlayerId } from "../types";
+import type { OnlinePlayerRole, RoomStatus } from "../online/types";
 import {
   selectCanStartWinClaim,
   selectCanEndTurn,
@@ -65,7 +68,21 @@ export function InGameHeaderActions() {
   );
 }
 
-export function InGameView() {
+export function InGameView({
+  isLocked = false,
+  onlineRole = null,
+  localPlayerColor = null,
+  roomStatus = null,
+  roomVersion = null,
+  onSubmitOnlineAction,
+}: {
+  isLocked?: boolean;
+  onlineRole?: OnlinePlayerRole | null;
+  localPlayerColor?: PlayerId | null;
+  roomStatus?: RoomStatus | null;
+  roomVersion?: number | null;
+  onSubmitOnlineAction?: (action: EngineAction) => void;
+}) {
   const game = useGameStore((s) => s.game);
   const ui = useGameStore((s) => s.ui);
   const selectCard = useGameStore((s) => s.selectCard);
@@ -77,18 +94,20 @@ export function InGameView() {
   const confirmPlaceRoute = useGameStore((s) => s.confirmPlaceRoute);
   const confirmUseDtd = useGameStore((s) => s.confirmUseDtd);
   const inspectSelectedCell = useGameStore((s) => s.inspectSelectedCell);
+  const showTemporaryInspectionFromOnline = useGameStore((s) => s.showTemporaryInspectionFromOnline);
   const startWinClaim = useGameStore((s) => s.startWinClaim);
   const cancelWinClaim = useGameStore((s) => s.cancelWinClaim);
   const toggleWinClaimLandmark = useGameStore((s) => s.toggleWinClaimLandmark);
   const submitWinClaim = useGameStore((s) => s.submitWinClaim);
   const endTurn = useGameStore((s) => s.endTurn);
   const returnToLanding = useGameStore((s) => s.returnToLanding);
-  const canStartWinClaim = useGameStore(selectCanStartWinClaim);
-  const canEndTurn = useGameStore(selectCanEndTurn);
-  const canInspectSelectedCell = useGameStore(selectCanInspectSelectedCell);
+  const showToast = useGameStore((s) => s.showToast);
+  const storeCanStartWinClaim = useGameStore(selectCanStartWinClaim);
+  const storeCanEndTurn = useGameStore(selectCanEndTurn);
+  const storeCanInspectSelectedCell = useGameStore(selectCanInspectSelectedCell);
   const isInWinClaimMode = useGameStore(selectIsInWinClaimMode);
-  const canSelectHandCard = useGameStore(selectCanSelectHandCard);
-  const canConfirmPlaceRoute = useGameStore(selectCanConfirmPlaceRoute);
+  const storeCanSelectHandCard = useGameStore(selectCanSelectHandCard);
+  const storeCanConfirmPlaceRoute = useGameStore(selectCanConfirmPlaceRoute);
 
   if (!game) {
     return (
@@ -100,12 +119,20 @@ export function InGameView() {
   }
 
   const current = game.players[game.currentTurn];
+  const isOnlineMode = Boolean(onlineRole && localPlayerColor && onSubmitOnlineAction);
+  const isOwnOnlineTurn = !isOnlineMode || localPlayerColor === game.currentTurn;
+  const isInteractionLocked = isLocked || !isOwnOnlineTurn;
+  const canStartWinClaim = storeCanStartWinClaim && !isInteractionLocked;
+  const canEndTurn = storeCanEndTurn && !isInteractionLocked;
+  const canInspectSelectedCell = storeCanInspectSelectedCell && !isInteractionLocked;
+  const canSelectHandCard = storeCanSelectHandCard && !isInteractionLocked;
+  const canConfirmPlaceRoute = storeCanConfirmPlaceRoute && !isInteractionLocked;
   const isAiTurn = game.gameMode === "ai" && game.currentTurn === "blue";
   const isAiThinking = ui.isAiThinking;
   const modeLabel = game.gameMode === "ai" ? "AI 对战" : "双人对战";
   const turnLabel = isAiTurn ? `${current.name} AI` : current.name;
-  const visibleHandPlayer = game.gameMode === "ai" ? game.players.red : current;
-  const selectedCard = !isAiTurn && ui.selectedCardId ? current.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
+  const visibleHandPlayer = isOnlineMode && localPlayerColor ? game.players[localPlayerColor] : game.gameMode === "ai" ? game.players.red : current;
+  const selectedCard = !isAiTurn && ui.selectedCardId ? visibleHandPlayer.handCards.find((card) => card.id === ui.selectedCardId) ?? null : null;
   const isRouteCardSelected = selectedCard?.kind === "route";
   const selectedDtdType = selectedCard?.kind === "dtd" ? selectedCard.type : null;
   const isCurrentTurnSkipped = game.playerEffects[game.currentTurn].skipNextTurn;
@@ -118,9 +145,10 @@ export function InGameView() {
   const winClaimCandidateCellIds = isInWinClaimMode ? getConnectedNetworkCandidateCellIds(game.board) : [];
   const ruleFeedbackText = `反馈：${feedbackPlayerName} · 连通 ${feedbackConnected}/${feedbackThreshold} · 有效 ${feedbackFormed}`;
   const canConfirmUseDtd =
-    selectedDtdType === "space-anxiety" ||
-    (selectedDtdType === "route-chaos" && ui.routeChaosTarget !== null) ||
-    (selectedDtdType === "landmark-chaos" && ui.landmarkChaosCellIds.length === 2);
+    !isInteractionLocked &&
+    (selectedDtdType === "space-anxiety" ||
+      (selectedDtdType === "route-chaos" && ui.routeChaosTarget !== null) ||
+      (selectedDtdType === "landmark-chaos" && ui.landmarkChaosCellIds.length === 2));
   const routeChaosTargetText =
     ui.routeChaosTarget?.axis === "row"
       ? `第 ${ui.routeChaosTarget.index + 1} 行`
@@ -132,6 +160,29 @@ export function InGameView() {
     "!bg-[#1f2d44] !text-white hover:!bg-[#2d4263] " +
     "disabled:!border-[#9aa3af] disabled:!bg-[#9aa3af] disabled:!text-white disabled:!opacity-100 disabled:hover:!bg-[#9aa3af]";
   const primaryActionButtonClass = actionButtonClass;
+  const onlineIdentityText =
+    isOnlineMode && localPlayerColor
+      ? `你是${getColorLabel(localPlayerColor)} · 当前${getColorLabel(game.currentTurn)}回合${roomVersion != null ? ` · v${roomVersion}` : ""}`
+      : null;
+
+  const submitOnlineOrLocal = (action: EngineAction, localSubmit: () => void) => {
+    if (!isOnlineMode || !onSubmitOnlineAction || !localPlayerColor) {
+      localSubmit();
+      return;
+    }
+    if (roomStatus !== "playing") return;
+    if (game.currentTurn !== localPlayerColor) {
+      showToast({ open: true, level: "info", message: "等待对方行动。" });
+      return;
+    }
+    if (action.type === "inspectCell") {
+      const inspectedCell = game.board.cells.find((cell) => cell.id === action.cellId);
+      if (inspectedCell?.hidden) {
+        showTemporaryInspectionFromOnline(action.cellId, inspectedCell.hidden);
+      }
+    }
+    onSubmitOnlineAction(action);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-y-auto sm:gap-3 sm:overflow-hidden lg:grid lg:grid-cols-[minmax(760px,1fr)_340px] lg:gap-6 lg:overflow-hidden">
@@ -148,6 +199,7 @@ export function InGameView() {
             </Button>
             <div className="min-w-0">
               <div className="text-xs text-slate-500">模式：{modeLabel}</div>
+              {onlineIdentityText && <div className="text-xs font-semibold text-emerald-700">{onlineIdentityText}</div>}
               <div className="text-xs text-slate-500">当前回合</div>
               <div className="text-xl font-semibold text-slate-900">{turnLabel}</div>
               {isAiTurn && (
@@ -187,10 +239,13 @@ export function InGameView() {
             useRouteOverlay={isWinClaimReviewing}
             showRouteChaosSelectors={selectedDtdType === "route-chaos" && !isInWinClaimMode}
             routeChaosTarget={ui.routeChaosTarget}
-            onSelectRouteChaosTarget={selectRouteChaosTarget}
+            onSelectRouteChaosTarget={(target) => {
+              if (!isInteractionLocked) selectRouteChaosTarget(target);
+            }}
             onSelectCell={(id) => {
+              if (isInteractionLocked) return;
               if (isInWinClaimMode) {
-                toggleWinClaimLandmark(id);
+                submitOnlineOrLocal({ type: "toggleWinClaimLandmark", playerId: game.currentTurn, cellId: id }, () => toggleWinClaimLandmark(id));
                 return;
               }
               if (selectedDtdType === "landmark-chaos") {
@@ -208,13 +263,20 @@ export function InGameView() {
           <div className="text-xs font-semibold text-slate-800 lg:text-sm lg:text-slate-900">
             {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
           </div>
+          {onlineIdentityText && (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+              {onlineIdentityText}
+            </div>
+          )}
           <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             <HandPanel
               cards={visibleHandPlayer.handCards}
               selectedCardId={ui.selectedCardId}
               selectedRotation={ui.selectedRotation}
               disabled={!canSelectHandCard}
-              onSelect={(id) => selectCard(id)}
+              onSelect={(id) => {
+                if (!isInteractionLocked) selectCard(id);
+              }}
             />
           </div>
           <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2 text-[11px] leading-4 text-slate-600 lg:text-xs">
@@ -246,10 +308,10 @@ export function InGameView() {
           <div className="flex flex-col gap-2 overflow-visible">
             {!isInWinClaimMode && isRouteCardSelected && (
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} onClick={rotateSelectedCardLeft}>
+                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} disabled={isInteractionLocked} onClick={rotateSelectedCardLeft}>
                   左旋
                 </Button>
-                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} onClick={rotateSelectedCardRight}>
+                <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} disabled={isInteractionLocked} onClick={rotateSelectedCardRight}>
                   右旋
                 </Button>
               </div>
@@ -257,10 +319,19 @@ export function InGameView() {
 
             {isInWinClaimMode ? (
               <>
-                <Button variant="secondary" className={`w-full ${actionButtonClass}`} onClick={cancelWinClaim}>
+                <Button
+                  variant="secondary"
+                  className={`w-full ${actionButtonClass}`}
+                  disabled={isInteractionLocked}
+                  onClick={() => submitOnlineOrLocal({ type: "cancelWinClaim", playerId: game.currentTurn }, cancelWinClaim)}
+                >
                   取消宣告
                 </Button>
-                <Button className={`w-full ${primaryActionButtonClass}`} onClick={submitWinClaim}>
+                <Button
+                  className={`w-full ${primaryActionButtonClass}`}
+                  disabled={isInteractionLocked}
+                  onClick={() => submitOnlineOrLocal({ type: "submitWinClaim", playerId: game.currentTurn }, submitWinClaim)}
+                >
                   提交验证
                 </Button>
               </>
@@ -285,39 +356,75 @@ export function InGameView() {
                 )}
 
                 {selectedDtdType && (
-                  <Button className={primaryActionButtonClass} disabled={!canConfirmUseDtd} onClick={confirmUseDtd}>
+                  <Button
+                    className={primaryActionButtonClass}
+                    disabled={!canConfirmUseDtd}
+                    onClick={() => {
+                      if (!selectedCard || selectedCard.kind !== "dtd") return;
+                      const playerId = game.currentTurn;
+                      const opponentId: PlayerId = playerId === "red" ? "blue" : "red";
+                      const target: DtdActionTarget | null =
+                        selectedCard.type === "space-anxiety"
+                          ? { type: "player", playerId: opponentId }
+                          : selectedCard.type === "route-chaos" && ui.routeChaosTarget
+                          ? { type: "line", ...ui.routeChaosTarget }
+                          : selectedCard.type === "landmark-chaos" && ui.landmarkChaosCellIds.length === 2
+                          ? { type: "cells", cellIds: [ui.landmarkChaosCellIds[0], ui.landmarkChaosCellIds[1]] }
+                          : null;
+                      if (!target) return;
+                      submitOnlineOrLocal({ type: "useDtd", playerId, cardId: selectedCard.id, target }, confirmUseDtd);
+                    }}
+                  >
                     确认使用 DTD
                   </Button>
                 )}
 
                 {canInspectSelectedCell && !selectedDtdType && (
-                  <Button variant="secondary" className={actionButtonClass} onClick={inspectSelectedCell}>
+                  <Button
+                    variant="secondary"
+                    className={actionButtonClass}
+                    onClick={() => submitOnlineOrLocal({ type: "inspectCell", playerId: game.currentTurn, cellId: ui.selectedCellId! }, inspectSelectedCell)}
+                  >
                     查看地标
                   </Button>
                 )}
 
                 {canStartWinClaim && !selectedDtdType && (
-                  <Button variant="secondary" className={actionButtonClass} onClick={startWinClaim}>
+                  <Button
+                    variant="secondary"
+                    className={actionButtonClass}
+                    onClick={() => submitOnlineOrLocal({ type: "startWinClaim", playerId: game.currentTurn }, startWinClaim)}
+                  >
                     宣布胜利
                   </Button>
                 )}
 
                 {canEndTurn && (
-                  <Button variant="secondary" className={actionButtonClass} onClick={endTurn}>
+                  <Button variant="secondary" className={actionButtonClass} onClick={() => submitOnlineOrLocal({ type: "endTurn" }, endTurn)}>
                     {isCurrentTurnSkipped ? "跳过回合" : "结束回合"}
                   </Button>
                 )}
 
                 <Button
                   className={primaryActionButtonClass}
-                  disabled={!canConfirmPlaceRoute || Boolean(selectedDtdType)}
+                  disabled={isInteractionLocked || !canConfirmPlaceRoute || Boolean(selectedDtdType)}
                   onClick={() =>
-                    confirmPlaceRoute({
-                      playerId: game.currentTurn,
-                      cardId: ui.selectedCardId!,
-                      cellId: ui.selectedCellId!,
-                      rotation: ui.selectedRotation,
-                    })
+                    submitOnlineOrLocal(
+                      {
+                        type: "placeRoute",
+                        playerId: game.currentTurn,
+                        cardId: ui.selectedCardId!,
+                        cellId: ui.selectedCellId!,
+                        rotation: ui.selectedRotation,
+                      },
+                      () =>
+                        confirmPlaceRoute({
+                          playerId: game.currentTurn,
+                          cardId: ui.selectedCardId!,
+                          cellId: ui.selectedCellId!,
+                          rotation: ui.selectedRotation,
+                        })
+                    )
                   }
                 >
                   确认放置

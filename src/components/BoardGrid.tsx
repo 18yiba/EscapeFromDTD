@@ -68,14 +68,20 @@ export function BoardGrid({
         const isClaimReviewing = Boolean(claimValidationResult) || displayMode === "review";
         const showClaimSelectionLabel = isClaimSelected && !isClaimReviewing;
         const isLandmarkChaosSelected = landmarkChaosSelectedCellIds.includes(cell.id);
+        const revealedLandmark =
+          cell.isRevealed && cell.revealed.kind === "landmark"
+            ? { owner: cell.revealed.owner, label: cell.revealed.label }
+            : null;
+        const revealedBlank = cell.isRevealed && cell.revealed.kind === "blank";
         const visibleLandmark =
           (showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "landmark"
             ? { owner: cell.hidden.owner, label: cell.hidden.label }
             : null;
         const visibleBlank =
           isTemporaryInspectedBlank ||
+          revealedBlank ||
           ((showAllHiddenContent || displayMode === "review") && cell.hidden?.kind === "blank");
-        const displayedLandmark = temporaryInspectedLandmark ?? visibleLandmark;
+        const displayedLandmark = temporaryInspectedLandmark ?? revealedLandmark ?? visibleLandmark;
         const landmarkBorderClass =
           displayedLandmark?.owner === "red"
             ? "border-red-500"

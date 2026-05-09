@@ -7,10 +7,15 @@ import { useState } from "react";
 import { ContactModal } from "../components/ContactModal";
 import { RuleModal } from "../components/RuleModal";
 import { APP_TITLE } from "../constants";
+import type { ConnectionStatus } from "../online/types";
 import type { GameMode } from "../types";
 
 type LandingViewProps = {
   onEnter: (mode: GameMode) => void;
+  onCreateOnlineRoom: () => void;
+  onJoinOnlineRoom: (roomId: string) => void;
+  onlineStatus: ConnectionStatus;
+  onlineError: string | null;
 };
 
 type NavItem =
@@ -69,15 +74,11 @@ const BACKGROUND_TILES: Array<{
   { placeholderLabel: "DTD 干扰牌", caption: "模拟认知失调", imageSrc: "/assets/landing/dtd-card.png" },
 ];
 
-const LANDING_ACTIONS: Array<{ label: string; mode: GameMode; tone: "primary" | "secondary" }> = [
-  { label: "双人对战", mode: "hotseat", tone: "primary" },
-  { label: "AI 对战", mode: "ai", tone: "secondary" },
-];
-
-export function LandingView({ onEnter }: LandingViewProps) {
+export function LandingView({ onEnter, onCreateOnlineRoom, onJoinOnlineRoom, onlineStatus, onlineError }: LandingViewProps) {
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
 
   const openRules = () => {
     setIsRuleModalOpen(true);
@@ -88,6 +89,20 @@ export function LandingView({ onEnter }: LandingViewProps) {
     setIsMenuOpen(false);
     onEnter(mode);
   };
+
+  const createOnlineRoom = () => {
+    setIsMenuOpen(false);
+    onCreateOnlineRoom();
+  };
+
+  const joinOnlineRoom = () => {
+    const trimmedCode = inviteCode.trim();
+    if (!trimmedCode) return;
+    setIsMenuOpen(false);
+    onJoinOnlineRoom(trimmedCode);
+  };
+
+  const isOnlineBusy = onlineStatus === "connecting";
 
   return (
     <div className="min-h-dvh overflow-x-hidden bg-[#f7f1e4] text-[#243126]">
@@ -160,11 +175,12 @@ export function LandingView({ onEnter }: LandingViewProps) {
               )}
             </div>
             <div className="grid gap-3 pt-3">
-              {LANDING_ACTIONS.map((action) => (
-                <LandingButton key={action.mode} tone={action.tone} onClick={() => startMode(action.mode)}>
-                  {action.label}
-                </LandingButton>
-              ))}
+              <LandingButton tone="primary" onClick={createOnlineRoom} disabled={isOnlineBusy}>
+                {isOnlineBusy ? "创建中..." : "创建联机房间"}
+              </LandingButton>
+              <LandingButton tone="secondary" onClick={() => startMode("ai")}>
+                AI 对战
+              </LandingButton>
             </div>
           </div>
         </div>
@@ -184,11 +200,34 @@ export function LandingView({ onEnter }: LandingViewProps) {
                 通过地标识别与路径构建，探索并克服发展性地形定向障碍。
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                {LANDING_ACTIONS.map((action) => (
-                  <LandingButton key={action.mode} tone={action.tone} onClick={() => startMode(action.mode)}>
-                    {action.label}
+                <LandingButton tone="primary" onClick={createOnlineRoom} disabled={isOnlineBusy}>
+                  {isOnlineBusy ? "创建中..." : "创建联机房间"}
+                </LandingButton>
+                <LandingButton tone="secondary" onClick={() => startMode("ai")}>
+                  AI 对战
+                </LandingButton>
+              </div>
+              <div className="mt-5 max-w-xl rounded-2xl border border-[#d8c8a9] bg-[#fffaf0]/86 p-4 shadow-[0_14px_36px_rgba(70,62,43,0.1)]">
+                <label htmlFor="invite-code" className="text-sm font-bold text-[#243126]">
+                  输入邀请码加入房间
+                </label>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="invite-code"
+                    value={inviteCode}
+                    onChange={(event) => setInviteCode(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") joinOnlineRoom();
+                    }}
+                    className="min-h-12 flex-1 rounded-full border border-[#cbb893] bg-white px-5 text-base font-semibold uppercase tracking-[0.08em] text-[#243126] outline-none transition placeholder:normal-case placeholder:tracking-normal placeholder:text-[#9b927f] focus:border-[#526f4d] focus:ring-2 focus:ring-[#78976f]/25"
+                    placeholder="例如 A1B2C3"
+                    disabled={isOnlineBusy}
+                  />
+                  <LandingButton tone="secondary" onClick={joinOnlineRoom} disabled={isOnlineBusy || !inviteCode.trim()}>
+                    加入房间
                   </LandingButton>
-                ))}
+                </div>
+                {onlineError && <p className="mt-3 text-sm font-medium text-[#a9473b]">{onlineError}</p>}
               </div>
             </div>
 
@@ -282,7 +321,17 @@ export function LandingView({ onEnter }: LandingViewProps) {
   );
 }
 
-function LandingButton({ tone, onClick, children }: { tone: "primary" | "secondary"; onClick: () => void; children: string }) {
+function LandingButton({
+  tone,
+  onClick,
+  disabled,
+  children,
+}: {
+  tone: "primary" | "secondary";
+  onClick: () => void;
+  disabled?: boolean;
+  children: string;
+}) {
   const toneClass =
     tone === "primary"
       ? "border-[#526f4d] bg-[#526f4d] text-[#fffaf0] shadow-[0_12px_26px_rgba(82,111,77,0.26)] hover:bg-[#425d3e]"
@@ -292,7 +341,8 @@ function LandingButton({ tone, onClick, children }: { tone: "primary" | "seconda
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-12 items-center justify-center rounded-full border px-7 py-3 text-base font-bold transition hover:scale-[1.025] hover:shadow-lg active:scale-95 ${toneClass}`}
+      disabled={disabled}
+      className={`inline-flex min-h-12 items-center justify-center rounded-full border px-7 py-3 text-base font-bold transition hover:scale-[1.025] hover:shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 ${toneClass}`}
     >
       {children}
     </button>

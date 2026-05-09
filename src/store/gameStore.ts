@@ -8,7 +8,7 @@
  */
 
 import { create } from "zustand";
-import type { DtdCardType, EngineAction, GameMode, GameState, PlayerId, Rotation } from "../types";
+import type { DtdCardType, EngineAction, GameMode, GameState, HiddenContent, PlayerId, Rotation } from "../types";
 import type { RuleFeedback, Scene, ToastState } from "../types/ui";
 import { applyAction, decayAiMemoryForTurn, decideAiAction, initializeGame, rememberAiAction, rememberAiObservation } from "../engine";
 import { WIN_CONNECTED_LANDMARKS } from "../constants";
@@ -34,6 +34,9 @@ type GameUIState = {
 type GameActions = {
   setScene: (scene: Scene) => void;
   startNewGame: (mode?: GameMode) => void;
+  hydrateGameFromOnline: (game: GameState) => void;
+  showTemporaryInspectionFromOnline: (cellId: number, content: HiddenContent) => void;
+  showToast: (toast: ToastState) => void;
   restart: () => void;
   returnToLanding: () => void;
 
@@ -166,6 +169,31 @@ function clearAiThinkingTimer() {
   }
 }
 
+function scheduleTemporaryInspectionHide(
+  set: (partial: GameStoreState | Partial<GameStoreState> | ((state: GameStoreState) => GameStoreState | Partial<GameStoreState>)) => void,
+  cellId: number
+) {
+  clearInspectHideTimer(cellId);
+  const timerId = setTimeout(() => {
+    set((s) => {
+      if (!s.ui.temporaryInspectedLandmarks[cellId] && !s.ui.temporaryInspectedBlankCellIds.includes(cellId)) {
+        return s;
+      }
+      const nextTemporaryInspectedLandmarks = { ...s.ui.temporaryInspectedLandmarks };
+      delete nextTemporaryInspectedLandmarks[cellId];
+      return {
+        ui: {
+          ...s.ui,
+          temporaryInspectedLandmarks: nextTemporaryInspectedLandmarks,
+          temporaryInspectedBlankCellIds: s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== cellId),
+        },
+      };
+    });
+    inspectHideTimers.delete(cellId);
+  }, INSPECT_REVEAL_DURATION_MS);
+  inspectHideTimers.set(cellId, timerId);
+}
+
 function rotateClockwise(rotation: Rotation): Rotation {
   return ((rotation + 1) % ROTATION_COUNT) as Rotation;
 }
@@ -234,6 +262,57 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       },
     });
   },
+
+  hydrateGameFromOnline: (game) => {
+    clearAiThinkingTimer();
+    set((s) => ({
+      scene: "inGame",
+      game,
+      ui: {
+        ...s.ui,
+        selectedCardId: null,
+        selectedCellId: null,
+        selectedRotation: 0,
+        routeChaosTarget: null,
+        landmarkChaosCellIds: [],
+        ruleFeedback: null,
+        isAiThinking: false,
+      },
+    }));
+  },
+
+  showTemporaryInspectionFromOnline: (cellId, content) => {
+    scheduleTemporaryInspectionHide(set, cellId);
+    const inspectedLandmark =
+      content.kind === "landmark"
+        ? {
+            owner: content.owner,
+            label: content.label,
+          }
+        : null;
+    const inspectedBlank = content.kind === "blank";
+    set((s) => ({
+      ui: {
+        ...s.ui,
+        temporaryInspectedLandmarks: inspectedLandmark
+          ? {
+              ...s.ui.temporaryInspectedLandmarks,
+              [cellId]: inspectedLandmark,
+            }
+          : s.ui.temporaryInspectedLandmarks,
+        temporaryInspectedBlankCellIds: inspectedBlank
+          ? [...s.ui.temporaryInspectedBlankCellIds.filter((id) => id !== cellId), cellId]
+          : s.ui.temporaryInspectedBlankCellIds,
+        toast: {
+          open: true,
+          level: "info",
+          message: "已查看该格，结果会短暂显示在棋盘上。",
+        },
+      },
+    }));
+  },
+
+  showToast: (toast) => set((s) => ({ ui: { ...s.ui, toast } })),
 
   restart: () => {
     clearAllInspectHideTimers();
