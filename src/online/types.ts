@@ -4,7 +4,7 @@ export type OnlinePlayerRole = "host" | "guest";
 export type OnlinePlayerId = "player1" | "player2";
 export type RoomStatus = "waiting" | "tutorial" | "playing" | "finished";
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
-export type CopiedLinkType = "inviteCode" | "invite" | "hostRecovery" | null;
+export type CopiedLinkType = "inviteCode" | null;
 
 export interface OnlinePlayerSession {
   socketId: string;
