@@ -22,8 +22,6 @@ export default function App() {
   const restart = useGameStore((s) => s.restart);
   const onlineRoom = useOnlineRoomStore((s) => s.room);
   const onlineRole = useOnlineRoomStore((s) => s.role);
-  const inviteUrl = useOnlineRoomStore((s) => s.inviteUrl);
-  const hostRecoveryUrl = useOnlineRoomStore((s) => s.hostRecoveryUrl);
   const copiedLink = useOnlineRoomStore((s) => s.copiedLink);
   const onlineStatus = useOnlineRoomStore((s) => s.connectionStatus);
   const onlineError = useOnlineRoomStore((s) => s.errorMessage);
@@ -70,7 +68,7 @@ export default function App() {
     showTemporaryInspectionFromOnline(inspection.cellId, inspection.content);
   }, [onlineRoom?.lastInspection, showTemporaryInspectionFromOnline]);
 
-  const copyRoomLink = async (linkType: "inviteCode" | "invite" | "hostRecovery", value: string) => {
+  const copyRoomCode = async (value: string) => {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(value);
     } else {
@@ -84,10 +82,10 @@ export default function App() {
       document.execCommand("copy");
       document.body.removeChild(textarea);
     }
-    markCopied(linkType);
+    markCopied("inviteCode");
   };
 
-  if (onlineRoom && onlineRole && inviteUrl) {
+  if (onlineRoom && onlineRole) {
     return (
       <AppLayout variant="game" headerActions={<InGameHeaderActions />}>
         <div className="relative flex min-h-0 w-full flex-1">
@@ -106,11 +104,9 @@ export default function App() {
           <OnlineRoomOverlay
             room={onlineRoom}
             role={onlineRole}
-            inviteUrl={inviteUrl}
-            hostRecoveryUrl={hostRecoveryUrl}
             copiedLink={copiedLink}
             errorMessage={onlineError}
-            onCopy={(linkType, value) => void copyRoomLink(linkType, value)}
+            onCopy={(value) => void copyRoomCode(value)}
             onSetReady={(ready) => void setReady(ready)}
             onStartTutorial={() => void startTutorial()}
             onConfirmTutorialReady={() => void confirmTutorialReady()}

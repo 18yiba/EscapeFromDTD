@@ -5,7 +5,7 @@ import { getLocalPlayerColor, getLocalPlayerId } from "../online/playerMapping";
 import { roomClient } from "../online/roomClient";
 import { readStoredRoomSession, writeStoredRoomSession } from "../online/storage";
 import type { ConnectionStatus, CopiedLinkType, OnlinePlayerRole, OnlineRoomState } from "../online/types";
-import { buildHostRecoveryUrl, buildInviteUrl, normalizeRoomId, parseRoomUrl, pushRoomUrl } from "../online/url";
+import { buildHostRecoveryUrl, buildInviteUrl, normalizeRoomId, parseRoomUrl } from "../online/url";
 import type { EngineAction, GameState } from "../types";
 
 type OnlineRoomActions = {
@@ -92,10 +92,8 @@ export const useOnlineRoomStore = create<OnlineRoomStoreState>((set, get) => ({
         roomId: ack.roomId,
         role: "host",
         hostToken: ack.hostToken,
-        inviteUrl: links.inviteUrl,
         createdAt: Date.now(),
       });
-      pushRoomUrl(ack.roomId);
       set({
         roomId: ack.roomId,
         role: "host",
@@ -128,7 +126,6 @@ export const useOnlineRoomStore = create<OnlineRoomStoreState>((set, get) => ({
       }
 
       const links = toRoomLinks(normalizedRoomId, null);
-      pushRoomUrl(normalizedRoomId);
       set({
         roomId: normalizedRoomId,
         role: "guest",
@@ -148,7 +145,7 @@ export const useOnlineRoomStore = create<OnlineRoomStoreState>((set, get) => ({
   initializeFromUrl: async () => {
     const { roomId, hostToken } = parseRoomUrl();
     if (!roomId) {
-      set({ hasInitializedFromUrl: true });
+      set({ hasInitializedFromUrl: true, connectionStatus: "idle", errorMessage: null });
       return;
     }
 
@@ -167,7 +164,6 @@ export const useOnlineRoomStore = create<OnlineRoomStoreState>((set, get) => ({
             roomId,
             role: "host",
             hostToken: recoveryToken,
-            inviteUrl: links.inviteUrl,
             createdAt: storedSession?.createdAt ?? Date.now(),
           });
           set({
