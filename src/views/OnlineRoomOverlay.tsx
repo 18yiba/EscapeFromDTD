@@ -288,16 +288,14 @@ function TutorialActionButton({
   variant = "primary",
   className = "",
   children,
+  style,
   ...props
 }: {
   variant?: "primary" | "secondary";
   className?: string;
   children: string;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  const variantClass =
-    variant === "primary"
-      ? "border-[#4F6B4F] bg-[#4F6B4F] text-white hover:bg-[#425d3e]"
-      : "border-[#4F6B4F] bg-[#F8F9FA] text-[#4F6B4F] hover:bg-[#edf3ea]";
+  const isPrimary = variant === "primary";
 
   return (
     <button
@@ -305,12 +303,18 @@ function TutorialActionButton({
       {...props}
       className={[
         "inline-flex min-h-12 items-center justify-center rounded-xl border px-5 py-3 text-base font-black leading-5 transition",
-        "disabled:cursor-not-allowed disabled:border-[#4F6B4F] disabled:bg-[#4F6B4F] disabled:text-white disabled:opacity-55 disabled:hover:bg-[#4F6B4F]",
-        variantClass,
+        "disabled:cursor-not-allowed disabled:opacity-55",
+        isPrimary ? "hover:brightness-95" : "hover:brightness-[0.98]",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
+      style={{
+        borderColor: "#4F6B4F",
+        backgroundColor: isPrimary ? "#4F6B4F" : "#F8F9FA",
+        color: isPrimary ? "#FFFFFF" : "#4F6B4F",
+        ...style,
+      }}
     >
       {children}
     </button>

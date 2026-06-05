@@ -259,54 +259,64 @@ export function InGameView({
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 overflow-visible sm:gap-3 sm:flex-row sm:items-start lg:min-h-0 lg:w-[340px] lg:flex-col lg:overflow-hidden lg:rounded-[24px] lg:border lg:border-[#e6dbcc] lg:bg-white/75 lg:p-4 lg:shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
-        <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2 lg:flex lg:min-h-0 lg:w-full lg:flex-col lg:space-y-3 lg:overflow-hidden">
-          <div className="text-xs font-semibold text-slate-800 lg:text-sm lg:text-slate-900">
-            {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
-          </div>
-          {onlineIdentityText && (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-              {onlineIdentityText}
+        {isInWinClaimMode ? (
+          <WinClaimSidePanel
+            selectedCellIds={selectedClaimLandmarkCellIds}
+            requiredCount={feedbackThreshold}
+            candidateCount={winClaimCandidateCellIds.length}
+            isReviewing={isWinClaimReviewing}
+            validationResult={game.winClaim?.validationResult}
+            isInteractionLocked={isInteractionLocked}
+            onCancel={() => submitOnlineOrLocal({ type: "cancelWinClaim", playerId: game.currentTurn }, cancelWinClaim)}
+            onSubmit={() => submitOnlineOrLocal({ type: "submitWinClaim", playerId: game.currentTurn }, submitWinClaim)}
+            actionButtonClass={actionButtonClass}
+            primaryActionButtonClass={primaryActionButtonClass}
+          />
+        ) : (
+          <>
+            <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2 lg:flex lg:min-h-0 lg:w-full lg:flex-col lg:space-y-3 lg:overflow-hidden">
+              <div className="text-xs font-semibold text-slate-800 lg:text-sm lg:text-slate-900">
+                {game.gameMode === "ai" ? "红方手牌" : "手牌"}（{visibleHandPlayer.handCards.length}）
+              </div>
+              {onlineIdentityText && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                  {onlineIdentityText}
+                </div>
+              )}
+              <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+                <HandPanel
+                  cards={visibleHandPlayer.handCards}
+                  selectedCardId={ui.selectedCardId}
+                  selectedRotation={ui.selectedRotation}
+                  disabled={!canSelectHandCard}
+                  onSelect={(id) => {
+                    if (!isInteractionLocked) selectCard(id);
+                  }}
+                />
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2 text-[11px] leading-4 text-slate-600 lg:text-xs">
+                {ruleFeedbackText}
+              </div>
+              {isAiTurn && (
+                <div className="hidden text-xs font-medium text-sky-700 lg:block">
+                  {isAiThinking ? "AI 正在思考..." : "AI 正在行动"}
+                </div>
+              )}
+              {isCurrentTurnSkipped && (
+                <div className="hidden rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 lg:block">
+                  受到空间焦虑影响，本回合跳过行动
+                </div>
+              )}
+              {canStartWinClaim && (
+                <div className="hidden rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 lg:block">
+                  已满足宣告条件
+                </div>
+              )}
             </div>
-          )}
-          <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
-            <HandPanel
-              cards={visibleHandPlayer.handCards}
-              selectedCardId={ui.selectedCardId}
-              selectedRotation={ui.selectedRotation}
-              disabled={!canSelectHandCard}
-              onSelect={(id) => {
-                if (!isInteractionLocked) selectCard(id);
-              }}
-            />
-          </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2 text-[11px] leading-4 text-slate-600 lg:text-xs">
-            {ruleFeedbackText}
-          </div>
-          {isAiTurn && (
-            <div className="hidden text-xs font-medium text-sky-700 lg:block">
-              {isAiThinking ? "AI 正在思考..." : "AI 正在行动"}
-            </div>
-          )}
-          {isCurrentTurnSkipped && (
-            <div className="hidden rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 lg:block">
-              受到空间焦虑影响，本回合跳过行动
-            </div>
-          )}
-          {canStartWinClaim && (
-            <div className="hidden rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 lg:block">
-              已满足宣告条件
-            </div>
-          )}
-        </div>
 
-        <div className="w-full shrink-0 overflow-visible rounded-[24px] border border-[#e6dbcc] bg-white/75 p-2.5 shadow-[0_8px_24px_rgba(70,62,43,0.05)] sm:w-72 lg:w-full lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-          {isInWinClaimMode && (
-            <div className="mb-1.5 text-right text-[11px] text-slate-500">
-              已选 {selectedClaimLandmarkCellIds.length}/{feedbackThreshold}
-            </div>
-          )}
-          <div className="flex flex-col gap-2 overflow-visible">
-            {!isInWinClaimMode && isRouteCardSelected && (
+            <div className="w-full shrink-0 overflow-visible rounded-[24px] border border-[#e6dbcc] bg-white/75 p-2.5 shadow-[0_8px_24px_rgba(70,62,43,0.05)] sm:w-72 lg:w-full lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+              <div className="flex flex-col gap-2 overflow-visible">
+                {isRouteCardSelected && (
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="secondary" className={`px-3 text-xs ${actionButtonClass}`} disabled={isInteractionLocked} onClick={rotateSelectedCardLeft}>
                   左旋
@@ -317,26 +327,6 @@ export function InGameView({
               </div>
             )}
 
-            {isInWinClaimMode ? (
-              <>
-                <Button
-                  variant="secondary"
-                  className={`w-full ${actionButtonClass}`}
-                  disabled={isInteractionLocked}
-                  onClick={() => submitOnlineOrLocal({ type: "cancelWinClaim", playerId: game.currentTurn }, cancelWinClaim)}
-                >
-                  取消宣告
-                </Button>
-                <Button
-                  className={`w-full ${primaryActionButtonClass}`}
-                  disabled={isInteractionLocked}
-                  onClick={() => submitOnlineOrLocal({ type: "submitWinClaim", playerId: game.currentTurn }, submitWinClaim)}
-                >
-                  提交验证
-                </Button>
-              </>
-            ) : (
-              <>
                 {selectedDtdType === "space-anxiety" && (
                   <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-900">
                     目标：{game.players[game.currentTurn === "red" ? "blue" : "red"].name}
@@ -429,11 +419,90 @@ export function InGameView({
                 >
                   确认放置
                 </Button>
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function WinClaimSidePanel({
+  selectedCellIds,
+  requiredCount,
+  candidateCount,
+  isReviewing,
+  validationResult,
+  isInteractionLocked,
+  onCancel,
+  onSubmit,
+  actionButtonClass,
+  primaryActionButtonClass,
+}: {
+  selectedCellIds: number[];
+  requiredCount: number;
+  candidateCount: number;
+  isReviewing: boolean;
+  validationResult?: Record<number, "correct" | "incorrect">;
+  isInteractionLocked: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+  actionButtonClass: string;
+  primaryActionButtonClass: string;
+}) {
+  const selectedSummary = selectedCellIds.length > 0 ? selectedCellIds.map((cellId) => cellId + 1).join("、") : "尚未选择";
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-3 overflow-visible rounded-[24px] border border-[#e6dbcc] bg-white/75 p-3 shadow-[0_8px_24px_rgba(70,62,43,0.05)] sm:w-72 lg:min-h-0 lg:w-full lg:flex-1 lg:overflow-hidden lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+      <div className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+        <div>
+          <div className="text-xs font-semibold text-slate-500">胜利内容</div>
+          <h2 className="mt-1 text-lg font-black text-slate-900">胜利验证</h2>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-900">
+          在左侧棋盘中选择当前连通路线网络里的己方地标。棋盘会保留路线、地标和验证标记。
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <WinClaimStat label="已选" value={`${selectedCellIds.length}/${requiredCount}`} />
+          <WinClaimStat label="可验证" value={`${candidateCount}`} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2 text-xs leading-5 text-slate-600">
+          <div className="font-semibold text-slate-800">已选格子</div>
+          <div className="mt-1">{selectedSummary}</div>
+        </div>
+
+        {isReviewing && validationResult && (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800">
+            <div className="font-semibold">验证结果已显示在棋盘上</div>
+            <div className="mt-1">
+              正确 {Object.values(validationResult).filter((mark) => mark === "correct").length} / 错误{" "}
+              {Object.values(validationResult).filter((mark) => mark === "incorrect").length}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-2">
+        <Button variant="secondary" className={`w-full ${actionButtonClass}`} disabled={isInteractionLocked} onClick={onCancel}>
+          取消宣告
+        </Button>
+        <Button className={`w-full ${primaryActionButtonClass}`} disabled={isInteractionLocked} onClick={onSubmit}>
+          提交验证
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function WinClaimStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-2">
+      <div className="text-[11px] font-semibold text-slate-500">{label}</div>
+      <div className="mt-1 text-lg font-black text-slate-900">{value}</div>
     </div>
   );
 }
